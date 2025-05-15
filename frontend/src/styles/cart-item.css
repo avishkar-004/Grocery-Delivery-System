@@ -1,0 +1,182 @@
+.cart-item {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 40px;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-light);
+  align-items: center;
+}
+
+.cart-item:last-child {
+  border-bottom: none;
+}
+
+/* Product Column */
+.cart-item-product {
+  display: flex;
+  align-items: center;
+}
+
+.cart-item-image {
+  width: 80px;
+  height: 80px;
+  margin-right: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  background-color: var(--light-gray);
+}
+
+.cart-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-item-details {
+  flex-grow: 1;
+}
+
+.cart-item-name {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+  text-decoration: none;
+}
+
+.cart-item-name:hover {
+  color: var(--primary-color);
+}
+
+.cart-item-meta {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.cart-item-category {
+  margin-bottom: var(--spacing-xs);
+}
+
+/* Price Column */
+.cart-item-price {
+  font-weight: var(--font-weight-medium);
+}
+
+/* Quantity Column */
+.cart-item-quantity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+
+.quantity-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--light-gray);
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+}
+
+.quantity-btn:hover {
+  background-color: var(--border-medium);
+}
+
+.quantity-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.quantity-value {
+  width: 36px;
+  text-align: center;
+  font-weight: var(--font-weight-medium);
+}
+
+/* Total Column */
+.cart-item-total {
+  font-weight: var(--font-weight-bold);
+  color: var(--primary-color);
+}
+
+/* Actions Column */
+.cart-item-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.cart-item-remove {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: var(--danger);
+  transition: background-color var(--transition-fast) ease;
+}
+
+.cart-item-remove:hover {
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cart-item {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+  }
+  
+  .cart-item-price,
+  .cart-item-quantity,
+  .cart-item-total {
+    position: relative;
+    padding-left: 90px;
+  }
+  
+  .cart-item-price::before,
+  .cart-item-quantity::before,
+  .cart-item-total::before {
+    position: absolute;
+    left: 0;
+    content: attr(data-label);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+  }
+  
+  .cart-item-price::before {
+    content: "Price:";
+  }
+  
+  .cart-item-quantity::before {
+    content: "Quantity:";
+  }
+  
+  .cart-item-total::before {
+    content: "Total:";
+  }
+  
+  .cart-item-actions {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+  }
+}

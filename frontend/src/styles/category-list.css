@@ -1,0 +1,106 @@
+.categories-container {
+  display: flex;
+  overflow-x: auto;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+}
+
+.categories-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.categories-container::-webkit-scrollbar-thumb {
+  background-color: var(--border-medium);
+  border-radius: 20px;
+}
+
+.categories-container::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.category-item-wrapper {
+  flex: 0 0 auto;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--border-radius-md);
+  background-color: var(--white);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  text-align: center;
+}
+
+.category-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.category-item.active {
+  background-color: var(--primary-color);
+  color: var(--white);
+}
+
+.category-icon {
+  font-size: 24px;
+  margin-bottom: var(--spacing-xs);
+}
+
+.category-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Loading State */
+.categories-loading {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.category-skeleton {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--border-radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--light-gray) 25%,
+    var(--border-light) 50%,
+    var(--light-gray) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading-wave 1.5s infinite;
+}
+
+@keyframes loading-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .category-item {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .category-icon {
+    font-size: 20px;
+  }
+}

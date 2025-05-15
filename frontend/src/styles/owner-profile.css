@@ -1,0 +1,339 @@
+.owner-profile-page {
+  padding-bottom: var(--spacing-xxl);
+}
+
+.page-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.page-header h1 {
+  font-size: var(--font-size-xxxl);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Success and Error Messages */
+.success-message,
+.error-message {
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.success-message {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: var(--primary-dark);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.error-message {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+/* Profile Container */
+.profile-container {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--spacing-xl);
+}
+
+/* Profile Sidebar */
+.profile-sidebar {
+  background-color: var(--white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.shop-info {
+  padding: var(--spacing-lg);
+  text-align: center;
+  border-bottom: 1px solid var(--border-light);
+  background-color: var(--primary-color);
+  color: var(--white);
+}
+
+.shop-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: var(--white);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: var(--font-weight-bold);
+  margin: 0 auto var(--spacing-md);
+}
+
+.shop-details h2 {
+  font-size: var(--font-size-lg);
+  margin: 0 0 var(--spacing-xs) 0;
+  color: var(--white);
+}
+
+.shop-meta {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-sm);
+}
+
+.shop-rating,
+.shop-orders {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Profile Tabs */
+.profile-tabs {
+  padding: var(--spacing-md);
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--spacing-md);
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast) ease;
+}
+
+.tab-button:hover {
+  background-color: var(--light-gray);
+}
+
+.tab-button.active {
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: var(--font-weight-medium);
+}
+
+.tab-icon {
+  margin-right: var(--spacing-md);
+  font-size: var(--font-size-lg);
+}
+
+/* Profile Content */
+.profile-content {
+  background-color: var(--white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-xl);
+}
+
+.section-title {
+  font-size: var(--font-size-xl);
+  margin: 0 0 var(--spacing-lg) 0;
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.subsection-title {
+  font-size: var(--font-size-lg);
+  margin: var(--spacing-lg) 0 var(--spacing-md) 0;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-light);
+}
+
+/* Forms */
+.profile-form {
+  margin-bottom: var(--spacing-xl);
+}
+
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+.required {
+  color: var(--danger);
+  margin-left: 4px;
+}
+
+.form-textarea {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color var(--transition-fast) ease;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+}
+
+.form-textarea.error {
+  border-color: var(--danger);
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.form-column {
+  flex: 1;
+}
+
+.form-actions {
+  margin-top: var(--spacing-lg);
+}
+
+/* Password Requirements */
+.password-requirements {
+  background-color: var(--light-gray);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-md) 0;
+}
+
+.password-requirements h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-md);
+}
+
+.password-requirements ul {
+  margin: 0;
+  padding-left: var(--spacing-lg);
+}
+
+.password-requirements li {
+  margin-bottom: 4px;
+  font-size: var(--font-size-sm);
+}
+
+/* Tab Content */
+.tab-content {
+  min-height: 300px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .profile-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .profile-sidebar {
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .shop-info {
+    display: flex;
+    align-items: center;
+    text-align: left;
+    padding: var(--spacing-lg);
+  }
+  
+  .shop-logo {
+    margin: 0 var(--spacing-lg) 0 0;
+    width: 60px;
+    height: 60px;
+    font-size: 1.5rem;
+  }
+  
+  .shop-meta {
+    justify-content: flex-start;
+  }
+  
+  .profile-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+  
+  .tab-button {
+    width: auto;
+    flex-grow: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .tab-button {
+    justify-content: center;
+    padding: var(--spacing-sm);
+  }
+  
+  .tab-icon {
+    margin-right: 0;
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .tab-button {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .profile-content {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 576px) {
+  .profile-tabs {
+    grid-template-columns: 1fr;
+  }
+  
+  .tab-button {
+    flex-direction: row;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  
+  .tab-icon {
+    margin-right: var(--spacing-md);
+    margin-bottom: 0;
+  }
+  
+  .shop-info {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .shop-logo {
+    margin: 0 0 var(--spacing-md) 0;
+  }
+  
+  .shop-meta {
+    justify-content: center;
+  }
+}

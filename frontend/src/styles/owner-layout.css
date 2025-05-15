@@ -1,0 +1,41 @@
+.owner-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.owner-main {
+  flex: 1;
+  padding: var(--spacing-xl) 0;
+  background-color: var(--off-white);
+}
+
+/* Add subtle background pattern for owner interface */
+.owner-layout {
+  background-color: var(--off-white);
+  background-image: linear-gradient(rgba(76, 175, 80, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(76, 175, 80, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
+}
+
+/* Add side padding to container on larger screens */
+@media (min-width: 1200px) {
+  .owner-main .container {
+    padding-left: var(--spacing-lg);
+    padding-right: var(--spacing-lg);
+  }
+}
+
+/* Ensure enough space for fixed navbar */
+@media (max-width: 768px) {
+  .owner-main {
+    padding-top: var(--spacing-lg);
+  }
+}
+
+/* Add a subtle shadow to the page container */
+.owner-main .container {
+  position: relative;
+  z-index: 1;
+}

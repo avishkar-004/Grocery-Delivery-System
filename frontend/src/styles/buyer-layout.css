@@ -1,0 +1,46 @@
+.buyer-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.buyer-main {
+  flex: 1;
+  padding: var(--spacing-xl) 0;
+  background-color: var(--off-white);
+}
+
+/* Add subtle background pattern for buyer interface */
+.buyer-layout {
+  background-color: var(--off-white);
+  background-image: linear-gradient(rgba(255, 152, 0, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 152, 0, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
+}
+
+/* Add side padding to container on larger screens */
+@media (min-width: 1200px) {
+  .buyer-main .container {
+    padding-left: var(--spacing-lg);
+    padding-right: var(--spacing-lg);
+  }
+}
+
+/* Ensure enough space for fixed navbar */
+@media (max-width: 768px) {
+  .buyer-main {
+    padding-top: var(--spacing-lg);
+  }
+}
+
+/* Add a subtle shadow to the page container */
+.buyer-main .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Provide some bottom margin to account for footer */
+.buyer-main {
+  margin-bottom: var(--spacing-md);
+}

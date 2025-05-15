@@ -1,0 +1,189 @@
+.auth-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.auth-left {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-xl);
+  background-color: var(--white);
+}
+
+.auth-right {
+  flex: 1;
+  position: relative;
+  background-color: var(--primary-light);
+  display: none;
+}
+
+.auth-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('/src/assets/images/grocery-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.9;
+}
+
+.auth-content {
+  max-width: 450px;
+  width: 100%;
+}
+
+.auth-logo {
+  margin-bottom: var(--spacing-xxl);
+  text-align: center;
+}
+
+.auth-logo h1 {
+  font-size: 2.5rem;
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--spacing-sm);
+}
+
+.auth-tagline {
+  color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+}
+
+.auth-form {
+  background-color: var(--white);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+}
+
+.auth-title {
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-xxl);
+  text-align: center;
+}
+
+.auth-form-footer {
+  margin-top: var(--spacing-lg);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.auth-form-footer a {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
+}
+
+.auth-options {
+  margin-top: var(--spacing-xl);
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.role-option {
+  flex: 1;
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.role-option:hover {
+  border-color: var(--primary-color);
+  background-color: var(--primary-light);
+}
+
+.role-option.active {
+  border-color: var(--primary-color);
+  background-color: var(--primary-light);
+}
+
+.role-option-icon {
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-sm);
+  color: var(--primary-color);
+}
+
+.role-option-title {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-xs);
+}
+
+.role-option-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.form-submit {
+  margin-top: var(--spacing-lg);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: var(--spacing-lg) 0;
+  color: var(--text-tertiary);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-light);
+}
+
+.auth-divider span {
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-sm);
+}
+
+/* Social login buttons */
+.social-login {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-medium);
+  background-color: var(--white);
+  cursor: pointer;
+  transition: background-color var(--transition-fast) ease;
+  font-size: var(--font-size-sm);
+}
+
+.social-btn:hover {
+  background-color: var(--light-gray);
+}
+
+.social-icon {
+  font-size: 1.2rem;
+}
+
+/* Responsive styles */
+@media (min-width: 992px) {
+  .auth-right {
+    display: block;
+  }
+}
+
+@media (max-width: 576px) {
+  .auth-left {
+    padding: var(--spacing-lg);
+  }
+  
+  .auth-options {
+    flex-direction: column;
+  }
+}
