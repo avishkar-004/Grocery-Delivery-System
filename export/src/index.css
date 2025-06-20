@@ -1,0 +1,327 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 142 76% 36%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 142 76% 36%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142 76% 36%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Custom Design System Colors */
+    --glass: rgba(255, 255, 255, 0.1);
+    --gradient-start: #10b981;
+    --gradient-end: #059669;
+    --buyer-accent: #3b82f6;
+    --seller-accent: #f97316;
+    --admin-accent: #8b5cf6;
+    --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    --shadow-elevated: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.3);
+    --mesh-gradient: conic-gradient(from 0deg at 50% 50%, #10b981 0deg, #059669 120deg, #047857 240deg, #10b981 360deg);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 142 76% 36%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --glass: rgba(0, 0, 0, 0.2);
+    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    /* border-width: 1px; */
+    border-style: solid;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    overflow-x: hidden;
+  }
+
+  /* Prevent layout shifts during animations */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Stable base for all animated elements */
+  * {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background-color: var(--glass);
+    backdrop-filter: blur(1.5rem);
+    /* border-width: 1px; */
+    border-style: solid;
+    border-color: rgba(255,255,255,0.2);
+    box-shadow: var(--shadow-glass);
+  }
+  
+  .gradient-text {
+    background-image: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+  
+  .hover-lift {
+    transition: asll 0.3s;
+    will-change: transform;
+  }
+  .hover-lift:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  .glow-effect {
+    box-shadow: var(--shadow-glow);
+    transition-property: box-shadow;
+    transition-duration: 300ms;
+  }
+
+  /* Enhanced Animation Classes */
+  .animate-fade-in {
+    animation: fadeIn 1s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 1s ease-out 0.3s forwards;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Tailwind Custom Extensions */
+@layer utilities {
+  .bg-glass {
+    background-color: var(--glass);
+  }
+  
+  .bg-gradient-start {
+    background-color: var(--gradient-start);
+  }
+  
+  .bg-gradient-end {
+    background-color: var(--gradient-end);
+  }
+  
+  .bg-buyer-accent {
+    background-color: var(--buyer-accent);
+  }
+  
+  .bg-seller-accent {
+    background-color: var(--seller-accent);
+  }
+  
+  .bg-admin-accent {
+    background-color: var(--admin-accent);
+  }
+  
+  .shadow-glass {
+    box-shadow: var(--shadow-glass);
+  }
+  
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .bg-mesh-gradient {
+    background: var(--mesh-gradient);
+  }
+
+  .text-buyer-accent {
+    color: var(--buyer-accent);
+  }
+  
+  .text-seller-accent {
+    color: var(--seller-accent);
+  }
+  
+  .text-admin-accent {
+    color: var(--admin-accent);
+  }
+
+  .border-buyer-accent {
+    border-color: var(--buyer-accent);
+  }
+  
+  .border-seller-accent {
+    border-color: var(--seller-accent);
+  }
+  
+  .border-admin-accent {
+    border-color: var(--admin-accent);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #10b981, #059669);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #059669, #047857);
+}
+
+/* Performance optimizations */
+.hover-lift,
+.animate-float,
+.animate-fade-in,
+.animate-slide-up {
+  will-change: transform, opacity;
+}
+
+/* Prevent flickering on page load */
+body {
+  animation: preventFlicker 0.1s;
+}
+
+@keyframes preventFlicker {
+  0% { opacity: 0.99; }
+  100% { opacity: 1; }
+}
