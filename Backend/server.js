@@ -1,0 +1,1310 @@
+const {body} = require("express-validator");
+help me create  MyOrder.jsx
+
+in which
+
+
+
+in this  buyer can see all the order serach by filer like pending','in_progress','accepted','completed','cancelled
+
+or serach by name ,see order dteials
+
+also when  will big card pop up and int will have its non sub navbar and cross mark to close that card
+
+two nav itmes will be see order details all order detail will beshown there
+
+with order items
+
+aslso stsust and  all all
+
+and second navitem will be see quataions
+
+when we click see quation
+
+there sub mini card shwoing all the quaution recided with quation details (price_per_unit decimal(10,2)
+available_quantity int
+is_available tinyint(1)
+total_price decimal(10,2))
+
+accpet quaution, chat with seller
+status
+
+
+and ffiler to soert by high to low ,distance l=high to low
+
+
+
+
+when i click on a quation it will show the quations item and its detail like
+price_per_unit decimal(10,2)
+available_quantity int
+is_available tinyint(1)
+total_price decimal(10,2)
+
+
+ and cross mark to cancelk and go back to quaution
+
+app.get('/api/orders/my-orders', authenticateToken, authorize(['buyer']), async (req, res) => {
+    try {
+        const { status = '', page = 1, limit = 10 } = req.query;
+
+        const parsedPage = parseInt(page, 10) || 1;
+        const parsedLimit = parseInt(limit, 10) || 10;
+        const offset = (parsedPage - 1) * parsedLimit;
+
+        if (parsedLimit <= 0 || parsedLimit > 100) {
+            return sendResponse(res, 400, false, 'Invalid limit parameter (must be between 1-100)');
+        }
+
+        if (parsedPage <= 0) {
+            return sendResponse(res, 400, false, 'Invalid page parameter');
+        }
+
+        let query = `
+            SELECT o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
+                   o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
+                   o.notes, o.created_at, o.updated_at,
+                   u.name as accepted_seller_name,
+                   COUNT(q.id) as quotation_count
+            FROM orders o 
+            LEFT JOIN users u ON o.accepted_seller_id = u.id 
+            LEFT JOIN quotations q ON o.id = q.order_id
+            WHERE o.buyer_id = ?
+        `;
+
+        const params = [req.user.id];
+
+        if (status) {
+            query += ` AND o.status = ?`;
+            params.push(status);
+        }
+
+        query += ` GROUP BY o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
+                          o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
+                          o.notes, o.created_at, o.updated_at, u.name
+                   ORDER BY o.created_at DESC 
+                   LIMIT ${parsedLimit} OFFSET ${offset}`;
+
+        const [orders] = await dbPool.execute(query, params);
+
+        // Get total count for pagination info
+        let countQuery = `
+            SELECT COUNT(DISTINCT o.id) as total
+            FROM orders o 
+            WHERE o.buyer_id = ?
+        `;
+
+        const countParams = [req.user.id];
+
+        if (status) {
+            countQuery += ` AND o.status = ?`;
+            countParams.push(status);
+        }
+
+        const [countResult] = await dbPool.execute(countQuery, countParams);
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / parsedLimit);
+
+        sendResponse(res, 200, true, 'Orders retrieved successfully', {
+            orders,
+            pagination: {
+                currentPage: parsedPage,
+                totalPages,
+                totalItems: total,
+                itemsPerPage: parsedLimit,
+                hasNextPage: parsedPage < totalPages,
+                hasPrevPage: parsedPage > 1
+            },
+            filters: {
+                status: status || null
+            }
+        });
+    } catch (error) {
+        console.error('Get buyer orders error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve orders');
+    }
+});
+
+// Cancel order - Fixed to handle stock restoration properly
+app.put('/api/orders/:orderId/cancel', authenticateToken, authorize(['buyer']), async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { orderId } = req.params;
+
+        // Check if order exists and belongs to user
+        const [orders] = await connection.execute(
+            'SELECT * FROM orders WHERE id = ? AND buyer_id = ?',
+            [orderId, req.user.id]
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found');
+        }
+
+        const order = orders[0];
+
+        if (!['pending', 'in_progress'].includes(order.status)) {
+            return sendResponse(res, 400, false, 'Cannot cancel order in current status');
+        }
+
+        // Update order status
+        await connection.execute(
+            'UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?',
+            ['cancelled', orderId]
+        );
+
+        // Cancel all quotations for this order
+        await connection.execute(
+            'UPDATE quotations SET status = ?, updated_at = NOW() WHERE order_id = ?',
+            ['cancelled', orderId]
+        );
+
+        // Close all active chats for this order
+        await connection.execute(
+            `UPDATE order_chat_participants 
+             SET chat_status = 'closed', closed_at = NOW()
+             WHERE order_id = ? AND chat_status = 'active'`,
+            [orderId]
+        );
+
+        await connection.commit();
+        sendResponse(res, 200, true, 'Order cancelled successfully');
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Cancel order error:', error);
+        sendResponse(res, 500, false, 'Failed to cancel order');
+    } finally {
+        connection.release();
+    }
+});
+
+// Get quotations for an order
+
+// Accept quotation - This is where the order gets its final price
+app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize(['buyer']), [
+    body('quotation_id').isInt().withMessage('Valid quotation ID required')
+], handleValidationErrors, async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { orderId } = req.params;
+        const { quotation_id } = req.body;
+
+        // Verify order ownership and status
+        const [orders] = await connection.execute(
+            'SELECT * FROM orders WHERE id = ? AND buyer_id = ?',
+            [orderId, req.user.id]
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found');
+        }
+
+        if (orders[0].status !== 'pending' && orders[0].status !== 'in_progress') {
+            return sendResponse(res, 400, false, 'Cannot accept quotation for order in current status');
+        }
+
+        // Verify quotation exists and belongs to this order
+        const [quotations] = await connection.execute(
+            'SELECT * FROM quotations WHERE id = ? AND order_id = ? AND status = ?',
+            [quotation_id, orderId, 'pending']
+        );
+
+        if (quotations.length === 0) {
+            return sendResponse(res, 404, false, 'Quotation not found or already processed');
+        }
+
+        const quotation = quotations[0];
+
+        // Update order with accepted seller and final total amount
+        await connection.execute(
+            'UPDATE orders SET status = ?, accepted_seller_id = ?, total_amount = ?, updated_at = NOW() WHERE id = ?',
+            ['accepted', quotation.seller_id, quotation.total_amount, orderId]
+        );
+
+        // Accept the quotation
+        await connection.execute(
+            'UPDATE quotations SET status = ?, updated_at = NOW() WHERE id = ?',
+            ['accepted', quotation_id]
+        );
+
+        // Reject all other quotations for this order
+        await connection.execute(
+            'UPDATE quotations SET status = ?, updated_at = NOW() WHERE order_id = ? AND id != ?',
+            ['rejected', orderId, quotation_id]
+        );
+
+        // Close chats with other sellers (assuming closeOrderChat function exists)
+        const [otherQuotations] = await connection.execute(
+            'SELECT seller_id FROM quotations WHERE order_id = ? AND id != ?',
+            [orderId, quotation_id]
+        );
+
+        for (const quote of otherQuotations) {
+            // Close chat with rejected sellers
+            await connection.execute(
+                `UPDATE order_chat_participants 
+                 SET chat_status = 'closed', closed_at = NOW()
+                 WHERE order_id = ? AND seller_id = ? AND chat_status = 'active'`,
+                [orderId, quote.seller_id]
+            );
+        }
+
+        await connection.commit();
+        sendResponse(res, 200, true, 'Quotation accepted successfully', {
+            order_id: orderId,
+            accepted_seller_id: quotation.seller_id,
+            final_total_amount: quotation.total_amount
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Accept quotation error:', error);
+        sendResponse(res, 500, false, 'Failed to accept quotation');
+    } finally {
+        connection.release();
+    }
+});
+
+// Order History
+app.get('/api/orders/history', authenticateToken, authorize(['buyer']), async (req, res) => {
+    try {
+        const { start_date, end_date, status, page = 1, limit = 10 } = req.query;
+
+        const parsedPage = parseInt(page, 10) || 1;
+        const parsedLimit = parseInt(limit, 10) || 10;
+        const offset = (parsedPage - 1) * parsedLimit;
+
+        if (parsedLimit <= 0 || parsedLimit > 100) {
+            return sendResponse(res, 400, false, 'Invalid limit parameter (must be between 1-100)');
+        }
+
+        if (parsedPage <= 0) {
+            return sendResponse(res, 400, false, 'Invalid page parameter');
+        }
+
+        let query = `
+            SELECT o.*, u.name as accepted_seller_name
+            FROM orders o 
+            LEFT JOIN users u ON o.accepted_seller_id = u.id 
+            WHERE o.buyer_id = ?
+        `;
+
+        const params = [req.user.id];
+
+        if (start_date) {
+            query += ` AND DATE(o.created_at) >= ?`;
+            params.push(start_date);
+        }
+
+        if (end_date) {
+            query += ` AND DATE(o.created_at) <= ?`;
+            params.push(end_date);
+        }
+
+        if (status) {
+            query += ` AND o.status = ?`;
+            params.push(status);
+        }
+
+        query += ` ORDER BY o.created_at DESC LIMIT ${parsedLimit} OFFSET ${offset}`;
+
+        const [orders] = await dbPool.execute(query, params);
+
+        // Get total count for pagination info
+        let countQuery = `
+            SELECT COUNT(*) as total
+            FROM orders o 
+            WHERE o.buyer_id = ?
+        `;
+
+        const countParams = [req.user.id];
+
+        if (start_date) {
+            countQuery += ` AND DATE(o.created_at) >= ?`;
+            countParams.push(start_date);
+        }
+
+        if (end_date) {
+            countQuery += ` AND DATE(o.created_at) <= ?`;
+            countParams.push(end_date);
+        }
+
+        if (status) {
+            countQuery += ` AND o.status = ?`;
+            countParams.push(status);
+        }
+
+        const [countResult] = await dbPool.execute(countQuery, countParams);
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / parsedLimit);
+
+        sendResponse(res, 200, true, 'Order history retrieved successfully', {
+            orders,
+            pagination: {
+                currentPage: parsedPage,
+                totalPages,
+                totalItems: total,
+                itemsPerPage: parsedLimit,
+                hasNextPage: parsedPage < totalPages,
+                hasPrevPage: parsedPage > 1
+            },
+            filters: {
+                start_date: start_date || null,
+                end_date: end_date || null,
+                status: status || null
+            }
+        });
+    } catch (error) {
+        console.error('Get order history error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve order history');
+    }
+});
+
+// Get order details
+app.get('/api/orders/:orderId/details', authenticateToken, authorize(['buyer']), async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        // Get order details
+        const [orders] = await dbPool.execute(
+            `SELECT o.*, u.name as accepted_seller_name, u.phone as seller_phone,
+                    u.address as seller_address
+             FROM orders o 
+             LEFT JOIN users u ON o.accepted_seller_id = u.id 
+             WHERE o.id = ? AND o.buyer_id = ?`,
+            [orderId, req.user.id]
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found');
+        }
+
+        // Get order items with product details
+        const [items] = await dbPool.execute(
+            `SELECT oi.*, p.name as product_name, p.description as product_description,
+                    pq.quantity, pq.unit_type, c.name as category_name
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.id
+             JOIN product_quantities pq ON oi.quantity_id = pq.id
+             JOIN categories c ON p.category_id = c.id
+             WHERE oi.order_id = ?`,
+            [orderId]
+        );
+
+        const orderDetails = {
+            ...orders[0],
+            items
+        };
+
+        sendResponse(res, 200, true, 'Order details retrieved successfully', orderDetails);
+    } catch (error) {
+        console.error('Get order details error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve order details');
+    }
+});
+
+// Reorder functionality - Creates new order from existing one
+app.post('/api/orders/:orderId/reorder', authenticateToken, authorize(['buyer']), async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { orderId } = req.params;
+
+        // Get original order
+        const [orders] = await connection.execute(
+            'SELECT * FROM orders WHERE id = ? AND buyer_id = ?',
+            [orderId, req.user.id]
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Original order not found');
+        }
+
+        const originalOrder = orders[0];
+
+        // Create new order - starts fresh without price
+        const [newOrderResult] = await connection.execute(
+            `INSERT INTO orders (buyer_id, order_name, delivery_address, delivery_latitude, delivery_longitude, notes, status, total_amount) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                req.user.id,
+                `Reorder: ${originalOrder.order_name}`,
+                originalOrder.delivery_address,
+                originalOrder.delivery_latitude,
+                originalOrder.delivery_longitude,
+                originalOrder.notes,
+                'pending',
+                0 // Start with 0 amount, will be set when quotation is accepted
+            ]
+        );
+
+        const newOrderId = newOrderResult.insertId;
+
+        // Copy order items
+        await connection.execute(
+            `INSERT INTO order_items (order_id, product_id, quantity_id, requested_quantity, notes)
+             SELECT ?, product_id, quantity_id, requested_quantity, notes
+             FROM order_items WHERE order_id = ?`,
+            [newOrderId, orderId]
+        );
+
+        await connection.commit();
+        sendResponse(res, 201, true, 'Reorder created successfully', {
+            orderId: newOrderId,
+            message: 'New order created from previous order. Sellers can now submit quotations.'
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Reorder error:', error);
+        sendResponse(res, 500, false, 'Failed to create reorder');
+    } finally {
+        connection.release();
+    }
+});
+app.get('/api/orders/status-counts', authenticateToken, async (req, res) => {
+    try {
+        let query, params;
+
+        if (req.user.role === 'buyer') {
+            query = `
+                SELECT 
+                    status,
+                    COUNT(*) as count
+                FROM orders 
+                WHERE buyer_id = ?
+                GROUP BY status
+            `;
+            params = [req.user.id];
+        } else if (req.user.role === 'seller') {
+            query = `
+                SELECT 
+                    status,
+                    COUNT(*) as count
+                FROM orders 
+                WHERE accepted_seller_id = ?
+                GROUP BY status
+            `;
+            params = [req.user.id];
+        } else {
+            return sendResponse(res, 403, false, 'Unauthorized');
+        }
+
+        const [statusCounts] = await dbPool.execute(query, params);
+
+        // Convert to object for easier frontend consumption
+        const counts = {};
+        statusCounts.forEach(row => {
+            counts[row.status] = row.count;
+        });
+
+        sendResponse(res, 200, true, 'Order status counts retrieved successfully', counts);
+    } catch (error) {
+        console.error('Get order status counts error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve order status counts');
+    }
+});
+app.get('/api/orders/advanced-filter', authenticateToken, async (req, res) => {
+    try {
+        const {
+            status,
+            start_date,
+            end_date,
+            min_amount,
+            max_amount,
+            search,
+            page = 1,
+            limit = 20,
+            sort = 'created_at',
+            order = 'desc'
+        } = req.query;
+
+        const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+        const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+        const offset = (parsedPage - 1) * parsedLimit;
+
+        // Validate sort parameters
+        const allowedSortFields = ['created_at', 'updated_at', 'total_amount', 'order_name'];
+        const allowedOrders = ['asc', 'desc'];
+        const sortField = allowedSortFields.includes(sort) ? sort : 'created_at';
+        const sortOrder = allowedOrders.includes(order.toLowerCase()) ? order.toUpperCase() : 'DESC';
+
+        let query, countQuery, params, countParams;
+
+        if (req.user.role === 'buyer') {
+            query = `
+                SELECT o.*, 
+                       u.name as accepted_seller_name,
+                       COUNT(DISTINCT q.id) as quotation_count
+                FROM orders o 
+                LEFT JOIN users u ON o.accepted_seller_id = u.id 
+                LEFT JOIN quotations q ON o.id = q.order_id
+                WHERE o.buyer_id = ?
+            `;
+            countQuery = `
+                SELECT COUNT(DISTINCT o.id) as total
+                FROM orders o 
+                WHERE o.buyer_id = ?
+            `;
+            params = [req.user.id];
+            countParams = [req.user.id];
+        } else if (req.user.role === 'seller') {
+            query = `
+                SELECT o.*, 
+                       u.name as buyer_name,
+                       q.status as my_quotation_status,
+                       q.total_amount as my_quotation_amount
+                FROM orders o 
+                JOIN users u ON o.buyer_id = u.id 
+                LEFT JOIN quotations q ON o.id = q.order_id AND q.seller_id = ?
+                WHERE o.accepted_seller_id = ? OR q.seller_id = ?
+            `;
+            countQuery = `
+                SELECT COUNT(DISTINCT o.id) as total
+                FROM orders o 
+                LEFT JOIN quotations q ON o.id = q.order_id AND q.seller_id = ?
+                WHERE o.accepted_seller_id = ? OR q.seller_id = ?
+            `;
+            params = [req.user.id, req.user.id, req.user.id];
+            countParams = [req.user.id, req.user.id, req.user.id];
+        } else {
+            return sendResponse(res, 403, false, 'Unauthorized role');
+        }
+
+        // Add filters
+        if (status) {
+            query += ` AND o.status = ?`;
+            countQuery += ` AND o.status = ?`;
+            params.push(status);
+            countParams.push(status);
+        }
+
+        if (start_date) {
+            query += ` AND DATE(o.created_at) >= ?`;
+            countQuery += ` AND DATE(o.created_at) >= ?`;
+            params.push(start_date);
+            countParams.push(start_date);
+        }
+
+        if (end_date) {
+            query += ` AND DATE(o.created_at) <= ?`;
+            countQuery += ` AND DATE(o.created_at) <= ?`;
+            params.push(end_date);
+            countParams.push(end_date);
+        }
+
+        if (min_amount) {
+            query += ` AND o.total_amount >= ?`;
+            countQuery += ` AND o.total_amount >= ?`;
+            params.push(parseFloat(min_amount));
+            countParams.push(parseFloat(min_amount));
+        }
+
+        if (max_amount) {
+            query += ` AND o.total_amount <= ?`;
+            countQuery += ` AND o.total_amount <= ?`;
+            params.push(parseFloat(max_amount));
+            countParams.push(parseFloat(max_amount));
+        }
+
+        if (search) {
+            query += ` AND (o.order_name LIKE ? OR o.notes LIKE ?)`;
+            countQuery += ` AND (o.order_name LIKE ? OR o.notes LIKE ?)`;
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm);
+        }
+
+        // Add GROUP BY for buyer queries
+        if (req.user.role === 'buyer') {
+            query += ` GROUP BY o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
+                               o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
+                               o.notes, o.created_at, o.updated_at, u.name`;
+        }
+
+        // Add sorting and pagination
+        query += ` ORDER BY o.${sortField} ${sortOrder} LIMIT ${parsedLimit} OFFSET ${offset}`;
+
+        const [orders] = await dbPool.execute(query, params);
+        const [countResult] = await dbPool.execute(countQuery, countParams);
+
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / parsedLimit);
+
+        sendResponse(res, 200, true, 'Filtered orders retrieved successfully', {
+            orders,
+            pagination: {
+                currentPage: parsedPage,
+                totalPages,
+                totalItems: total,
+                itemsPerPage: parsedLimit,
+                hasNextPage: parsedPage < totalPages,
+                hasPrevPage: parsedPage > 1
+            },
+            filters: {
+                status: status || null,
+                start_date: start_date || null,
+                end_date: end_date || null,
+                min_amount: min_amount ? parseFloat(min_amount) : null,
+                max_amount: max_amount ? parseFloat(max_amount) : null,
+                search: search || null,
+                sort: sortField,
+                order: sortOrder.toLowerCase()
+            }
+        });
+
+    } catch (error) {
+        console.error('Advanced filter orders error:', error);
+        sendResponse(res, 500, false, 'Failed to filter orders', null, error.message);
+    }
+});
+
+
+app.get('/api/messages/quotation/:quotationId', authenticateToken, async (req, res) => {
+    try {
+        const { quotationId } = req.params;
+
+        // Verify user has access to this quotation
+        const [quotations] = await dbPool.execute(
+            `SELECT q.*, o.buyer_id, o.order_name
+       FROM quotations q 
+       JOIN orders o ON q.order_id = o.id 
+       WHERE q.id = ? AND (q.seller_id = ? OR o.buyer_id = ?)`,
+            [quotationId, req.user.id, req.user.id]
+        );
+
+        if (quotations.length === 0) {
+            return sendResponse(res, 404, false, 'Quotation not found or access denied');
+        }
+
+        // Get messages
+        const [messages] = await dbPool.execute(
+            `SELECT m.*, u.name as sender_name
+       FROM messages m 
+       JOIN users u ON m.sender_id = u.id 
+       WHERE m.quotation_id = ? 
+       ORDER BY m.created_at ASC`,
+            [quotationId]
+        );
+
+        const result = {
+            quotation: quotations[0],
+            messages
+        };
+
+        sendResponse(res, 200, true, 'Messages retrieved successfully', result);
+    } catch (error) {
+        console.error('Get messages error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve messages');
+    }
+});
+
+// POST /api/messages/send - Send message
+app.post('/api/messages/send', authenticateToken, [
+    body('quotation_id').isInt().withMessage('Valid quotation ID required'),
+    body('message').trim().isLength({ min: 1, max: 1000 }).withMessage('Message must be 1-1000 characters')
+], handleValidationErrors, async (req, res) => {
+    try {
+        const { quotation_id, message } = req.body;
+
+        // Verify user has access to this quotation
+        const [quotations] = await dbPool.execute(
+            `SELECT q.*, o.buyer_id 
+       FROM quotations q 
+       JOIN orders o ON q.order_id = o.id 
+       WHERE q.id = ? AND (q.seller_id = ? OR o.buyer_id = ?)`,
+            [quotation_id, req.user.id, req.user.id]
+        );
+
+        if (quotations.length === 0) {
+            return sendResponse(res, 404, false, 'Quotation not found or access denied');
+        }
+
+        const quotation = quotations[0];
+
+        // Determine receiver
+        const receiverId = req.user.id === quotation.seller_id ? quotation.buyer_id : quotation.seller_id;
+
+        // Insert message
+        const [result] = await dbPool.execute(
+            'INSERT INTO messages (quotation_id, sender_id, receiver_id, message) VALUES (?, ?, ?, ?)',
+            [quotation_id, req.user.id, receiverId, message]
+        );
+
+        sendResponse(res, 201, true, 'Message sent successfully', { messageId: result.insertId });
+    } catch (error) {
+        console.error('Send message error:', error);
+        sendResponse(res, 500, false, 'Failed to send message');
+    }
+});
+
+// PUT /api/messages/:messageId/read - Mark as read
+app.put('/api/messages/:messageId/read', authenticateToken, async (req, res) => {
+    try {
+        const { messageId } = req.params;
+
+        const [result] = await dbPool.execute(
+            'UPDATE messages SET is_read = TRUE WHERE id = ? AND receiver_id = ?',
+            [messageId, req.user.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return sendResponse(res, 404, false, 'Message not found or access denied');
+        }
+
+        sendResponse(res, 200, true, 'Message marked as read');
+    } catch (error) {
+        console.error('Mark message read error:', error);
+        sendResponse(res, 500, false, 'Failed to mark message as read');
+    }
+});
+
+// GET /api/messages/history/:quotationId - Message history
+app.get('/api/messages/history/:quotationId', authenticateToken, async (req, res) => {
+    try {
+        const { quotationId } = req.params;
+        const { page = 1, limit = 50 } = req.query;
+        const offset = (page - 1) * limit;
+
+        // Verify access
+        const [quotations] = await dbPool.execute(
+            `SELECT q.* FROM quotations q 
+       JOIN orders o ON q.order_id = o.id 
+       WHERE q.id = ? AND (q.seller_id = ? OR o.buyer_id = ?)`,
+            [quotationId, req.user.id, req.user.id]
+        );
+
+        if (quotations.length === 0) {
+            return sendResponse(res, 404, false, 'Quotation not found or access denied');
+        }
+
+        const [messages] = await dbPool.execute(
+            `SELECT m.*, u.name as sender_name
+       FROM messages m 
+       JOIN users u ON m.sender_id = u.id 
+       WHERE m.quotation_id = ? 
+       ORDER BY m.created_at DESC 
+       LIMIT ? OFFSET ?`,
+            [quotationId, parseInt(limit), parseInt(offset)]
+        );
+
+        sendResponse(res, 200, true, 'Message history retrieved successfully', messages.reverse());
+    } catch (error) {
+        console.error('Get message history error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve message history');
+    }
+});
+
+// DELETE /api/messages/:messageId - Delete message
+app.delete('/api/messages/:messageId', authenticateToken, async (req, res) => {
+    try {
+        const { messageId } = req.params;
+
+        const [result] = await dbPool.execute(
+            'DELETE FROM messages WHERE id = ? AND sender_id = ?',
+            [messageId, req.user.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return sendResponse(res, 404, false, 'Message not found or access denied');
+        }
+
+        sendResponse(res, 200, true, 'Message deleted successfully');
+    } catch (error) {
+        console.error('Delete message error:', error);
+        sendResponse(res, 500, false, 'Failed to delete message');
+    }
+});
+
+const authenticateSocket = (socket, next) => {
+    const token = socket.handshake.auth.token;
+
+    if (!token) {
+        return next(new Error('Authentication error'));
+    }
+
+    try {
+        const decoded = verifyToken(token);
+        socket.userId = decoded.userId;
+        socket.userRole = decoded.role;
+        next();
+    } catch (err) {
+        next(new Error('Authentication error'));
+    }
+};
+
+// Verify if user can participate in order chat
+async function verifyOrderChatParticipation(userId, orderId) {
+    const [result] = await dbPool.execute(
+        `SELECT 1 FROM order_chat_participants 
+     WHERE order_id = ? AND (buyer_id = ? OR seller_id = ?) AND chat_status = 'active'`,
+        [orderId, userId, userId]
+    );
+
+    return result.length > 0;
+}
+
+// Get order chat information
+async function getOrderChatInfo(userId, orderId) {
+    const [result] = await dbPool.execute(
+        `SELECT 
+       ocp.order_id,
+       ocp.buyer_id,
+       ocp.seller_id,
+       o.order_name,
+       CASE 
+         WHEN ocp.buyer_id = ? THEN ocp.seller_id
+         ELSE ocp.buyer_id
+       END as receiver_id,
+       CASE 
+         WHEN ocp.buyer_id = ? THEN seller.name
+         ELSE buyer.name
+       END as receiver_name,
+       CASE 
+         WHEN ocp.buyer_id = ? THEN buyer.name
+         ELSE seller.name
+       END as sender_name
+     FROM order_chat_participants ocp
+     JOIN orders o ON ocp.order_id = o.id
+     JOIN users buyer ON ocp.buyer_id = buyer.id
+     JOIN users seller ON ocp.seller_id = seller.id
+     WHERE ocp.order_id = ? AND (ocp.buyer_id = ? OR ocp.seller_id = ?) 
+     AND ocp.chat_status = 'active'`,
+        [userId, userId, userId, orderId, userId, userId]
+    );
+
+    return result.length > 0 ? {
+        orderId: result[0].order_id,
+        buyerId: result[0].buyer_id,
+        sellerId: result[0].seller_id,
+        orderName: result[0].order_name,
+        receiverId: result[0].receiver_id,
+        receiverName: result[0].receiver_name,
+        senderName: result[0].sender_name
+    } : null;
+}
+
+// Save order message
+async function saveOrderMessage({ orderId, senderId, receiverId, message, messageType, fileUrl }) {
+    const [result] = await dbPool.execute(
+        `INSERT INTO order_messages (order_id, sender_id, receiver_id, message, message_type, file_url)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+        [orderId, senderId, receiverId, message, messageType, fileUrl]
+    );
+
+    const [savedMessage] = await dbPool.execute(
+        `SELECT om.*, u.name as sender_name 
+     FROM order_messages om
+     JOIN users u ON om.sender_id = u.id
+     WHERE om.id = ?`,
+        [result.insertId]
+    );
+
+    return savedMessage[0];
+}
+
+// Get order messages with pagination
+async function getOrderMessages(orderId, page, limit) {
+    const offset = (page - 1) * limit;
+
+    const [messages] = await dbPool.execute(
+        `SELECT om.*, u.name as sender_name
+     FROM order_messages om
+     JOIN users u ON om.sender_id = u.id
+     WHERE om.order_id = ?
+     ORDER BY om.created_at DESC
+     LIMIT ? OFFSET ?`,
+        [orderId, parseInt(limit), parseInt(offset)]
+    );
+
+    return messages.reverse(); // Return in chronological order
+}
+
+// Get total message count for an order
+async function getOrderMessagesCount(orderId) {
+    const [result] = await dbPool.execute(
+        'SELECT COUNT(*) as count FROM order_messages WHERE order_id = ?',
+        [orderId]
+    );
+
+    return result[0].count;
+}
+
+// Mark messages as read
+async function markOrderMessagesAsRead(orderId, userId) {
+    await dbPool.execute(
+        'UPDATE order_messages SET is_read = TRUE WHERE order_id = ? AND receiver_id = ? AND is_read = FALSE',
+        [orderId, userId]
+    );
+}
+
+// Get unread message count
+async function getUnreadMessageCount(orderId, userId) {
+    const [result] = await dbPool.execute(
+        'SELECT COUNT(*) as count FROM order_messages WHERE order_id = ? AND receiver_id = ? AND is_read = FALSE',
+        [orderId, userId]
+    );
+
+    return result[0].count;
+}
+
+// Get user's order chats
+async function getUserOrderChats(userId, page, limit) {
+    const offset = (page - 1) * limit;
+
+    const [chats] = await dbPool.execute(
+        `SELECT 
+       ocp.order_id,
+       o.order_name,
+       o.status as order_status,
+       CASE 
+         WHEN ocp.buyer_id = ? THEN seller.name
+         ELSE buyer.name
+       END as other_party_name,
+       CASE 
+         WHEN ocp.buyer_id = ? THEN 'seller'
+         ELSE 'buyer'
+       END as other_party_type,
+       (SELECT COUNT(*) FROM order_messages 
+        WHERE order_id = ocp.order_id AND receiver_id = ? AND is_read = FALSE) as unread_count,
+       (SELECT message FROM order_messages 
+        WHERE order_id = ocp.order_id ORDER BY created_at DESC LIMIT 1) as last_message,
+       (SELECT created_at FROM order_messages 
+        WHERE order_id = ocp.order_id ORDER BY created_at DESC LIMIT 1) as last_message_time,
+       ocp.created_at
+     FROM order_chat_participants ocp
+     JOIN orders o ON ocp.order_id = o.id
+     JOIN users buyer ON ocp.buyer_id = buyer.id
+     JOIN users seller ON ocp.seller_id = seller.id
+     WHERE (ocp.buyer_id = ? OR ocp.seller_id = ?) AND ocp.chat_status = 'active'
+     ORDER BY last_message_time DESC, ocp.created_at DESC
+     LIMIT ? OFFSET ?`,
+        [userId, userId, userId, userId, userId, parseInt(limit), parseInt(offset)]
+    );
+
+    return chats;
+}
+
+// Create chat participants when quotation is created
+async function createOrderChatParticipants(orderId, buyerId, sellerId, quotationId = null) {
+    try {
+        await dbPool.execute(
+            `INSERT IGNORE INTO order_chat_participants (order_id, buyer_id, seller_id, quotation_id)
+       VALUES (?, ?, ?, ?)`,
+            [orderId, buyerId, sellerId, quotationId]
+        );
+    } catch (error) {
+        console.error('Error creating chat participants:', error);
+    }
+}
+
+// Close chat when order is completed/cancelled or quotation is rejected
+async function closeOrderChat(orderId, buyerId, sellerId) {
+    try {
+        await dbPool.execute(
+            `UPDATE order_chat_participants 
+       SET chat_status = 'closed', closed_at = NOW()
+       WHERE order_id = ? AND buyer_id = ? AND seller_id = ?`,
+            [orderId, buyerId, sellerId]
+        );
+    } catch (error) {
+        console.error('Error closing chat:', error);
+    }
+}
+
+// Send push notification (implement based on your notification system)
+async function sendMessageNotification(receiverId, messageData) {
+    // Implement push notification logic here
+    // This could be Firebase FCM, email, SMS, etc.
+    console.log('Sending notification to user:', receiverId, messageData);
+}
+
+// 5. ADD SOCKET.IO CONNECTION HANDLING (after your middleware setup)
+
+io.use(authenticateSocket);
+
+// Socket connection handling
+io.on('connection', (socket) => {
+    console.log(`User ${socket.userId} connected`);
+
+    // Join user to their personal room
+    socket.join(`user_${socket.userId}`);
+
+    // Join order-specific chat rooms
+    socket.on('join_order_chat', async (data) => {
+        const { orderId } = data;
+
+        try {
+            // Verify user can participate in this order chat
+            const canParticipate = await verifyOrderChatParticipation(socket.userId, orderId);
+
+            if (canParticipate) {
+                socket.join(`order_${orderId}`);
+                socket.emit('joined_order_chat', { orderId, success: true });
+
+                // Send recent messages
+                const recentMessages = await getOrderMessages(orderId, 1, 20);
+                socket.emit('order_messages_history', { orderId, messages: recentMessages });
+            } else {
+                socket.emit('joined_order_chat', { orderId, success: false, error: 'Not authorized' });
+            }
+        } catch (error) {
+            socket.emit('joined_order_chat', { orderId, success: false, error: 'Server error' });
+        }
+    });
+
+    // Handle sending messages
+    socket.on('send_order_message', async (data) => {
+        const { orderId, message, messageType = 'text', fileUrl = null, fileName = null } = data;
+
+        try {
+            // Verify user can send message to this order
+            const chatInfo = await getOrderChatInfo(socket.userId, orderId);
+
+            if (!chatInfo) {
+                socket.emit('message_error', { error: 'Not authorized to send message' });
+                return;
+            }
+
+            // For file messages, message can be empty or contain a caption
+            if (messageType !== 'text' && !fileUrl) {
+                socket.emit('message_error', { error: 'File URL required for file messages' });
+                return;
+            }
+
+            // Save message to database (works with existing table structure!)
+            const savedMessage = await saveOrderMessage({
+                orderId,
+                senderId: socket.userId,
+                receiverId: chatInfo.receiverId,
+                message: message || (fileName ? `Sent a file: ${fileName}` : 'Sent a file'),
+                messageType,
+                fileUrl
+            });
+
+            // Emit to all participants in the order chat
+            io.to(`order_${orderId}`).emit('new_order_message', {
+                ...savedMessage,
+                sender_name: chatInfo.senderName,
+                fileName // Include original filename for display
+            });
+
+            // Send push notification to receiver
+            let notificationMessage;
+            switch (messageType) {
+                case 'image':
+                    notificationMessage = 'Sent an image';
+                    break;
+                case 'file':
+                    notificationMessage = fileName ? `Sent a file: ${fileName}` : 'Sent a file';
+                    break;
+                default:
+                    notificationMessage = message;
+            }
+
+            await sendMessageNotification(chatInfo.receiverId, {
+                orderId,
+                senderName: chatInfo.senderName,
+                message: notificationMessage,
+                orderName: chatInfo.orderName
+            });
+
+        } catch (error) {
+            console.error('Send message error:', error);
+            socket.emit('message_error', { error: 'Failed to send message' });
+        }
+    });
+    // Handle marking messages as read
+    socket.on('mark_messages_read', async (data) => {
+        const { orderId } = data;
+
+        try {
+            await markOrderMessagesAsRead(orderId, socket.userId);
+
+            // Notify other participants that messages were read
+            socket.to(`order_${orderId}`).emit('messages_marked_read', {
+                orderId,
+                readByUserId: socket.userId
+            });
+        } catch (error) {
+            console.error('Mark messages read error:', error);
+        }
+    });
+
+    // Handle typing indicators
+    socket.on('typing_start', (data) => {
+        const { orderId } = data;
+        socket.to(`order_${orderId}`).emit('user_typing', {
+            orderId,
+            userId: socket.userId,
+            typing: true
+        });
+    });
+
+    socket.on('typing_stop', (data) => {
+        const { orderId } = data;
+        socket.to(`order_${orderId}`).emit('user_typing', {
+            orderId,
+            userId: socket.userId,
+            typing: false
+        });
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`User ${socket.userId} disconnected`);
+    });
+});
+app.post('/api/orders/:orderId/messages', authenticateToken, [
+    body('message').optional().trim(),
+    body('message_type').optional().isIn(['text', 'image', 'file']).withMessage('Invalid message type'),
+    body('file_url').optional().notEmpty().withMessage('File URL must be provided for file messages'),
+
+    body('file_name').optional().trim()
+], handleValidationErrors, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { message, message_type = 'text', file_url = null, file_name = null } = req.body;
+
+        // Verify user can send message to this order
+        const chatInfo = await getOrderChatInfo(req.user.id, orderId);
+
+        if (!chatInfo) {
+            return sendResponse(res, 403, false, 'Not authorized to send message to this order');
+        }
+
+        // Validate message content
+        if (message_type === 'text' && !message) {
+            return sendResponse(res, 400, false, 'Message content required for text messages');
+        }
+
+        if ((message_type === 'image' || message_type === 'file') && !file_url) {
+            return sendResponse(res, 400, false, 'File URL required for file messages');
+        }
+
+        // Save message to database
+        const savedMessage = await saveOrderMessage({
+            orderId,
+            senderId: req.user.id,
+            receiverId: chatInfo.receiverId,
+            message: message || (file_name ? `Sent a file: ${file_name}` : 'Sent a file'),
+            messageType: message_type,
+            fileUrl: file_url
+        });
+
+        // Emit to socket clients
+        io.to(`order_${orderId}`).emit('new_order_message', {
+            ...savedMessage,
+            sender_name: req.user.name,
+            fileName: file_name
+        });
+
+        // Send push notification
+        let notificationMessage;
+        switch (message_type) {
+            case 'image':
+                notificationMessage = 'Sent an image';
+                break;
+            case 'file':
+                notificationMessage = file_name ? `Sent a file: ${file_name}` : 'Sent a file';
+                break;
+            default:
+                notificationMessage = message;
+        }
+
+        await sendMessageNotification(chatInfo.receiverId, {
+            orderId,
+            senderName: req.user.name,
+            message: notificationMessage,
+            orderName: chatInfo.orderName
+        });
+
+        sendResponse(res, 201, true, 'Message sent successfully', savedMessage);
+
+    } catch (error) {
+        console.error('Send message error:', error);
+        sendResponse(res, 500, false, 'Failed to send message');
+    }
+});
+// GET /api/orders/:orderId/chat-info - Get chat participants and status
+app.get('/api/orders/:orderId/chat-info', authenticateToken, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        const chatInfo = await getOrderChatInfo(req.user.id, orderId);
+
+        if (!chatInfo) {
+            return sendResponse(res, 403, false, 'Not authorized to access this chat');
+        }
+
+        // Get unread message count
+        const unreadCount = await getUnreadMessageCount(orderId, req.user.id);
+
+        sendResponse(res, 200, true, 'Chat info retrieved successfully', {
+            ...chatInfo,
+            unreadCount
+        });
+
+    } catch (error) {
+        console.error('Get chat info error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve chat info');
+    }
+});
+
+// GET /api/orders/my-chats - Get all active chats for user
+app.get('/api/orders/my-chats', authenticateToken, async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+
+        const chats = await getUserOrderChats(req.user.id, page, limit);
+
+        sendResponse(res, 200, true, 'Chats retrieved successfully', chats);
+
+    } catch (error) {
+        console.error('Get user chats error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve chats');
+    }
+});
+
+app.post('/api/orders/:orderId/upload-file', authenticateToken, chatUpload.single('file'), async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        if (!req.file) {
+            return sendResponse(res, 400, false, 'No file uploaded');
+        }
+
+        // Verify user can access this order's chat
+        const canAccess = await verifyOrderChatParticipation(req.user.id, orderId);
+
+        if (!canAccess) {
+            return sendResponse(res, 403, false, 'Not authorized to upload files to this chat');
+        }
+
+        const fileUrl = `/uploads/chat/${req.file.filename}`;
+
+        // Determine message type based on file type
+        let messageType = 'file';
+        if (req.file.mimetype.startsWith('image/')) {
+            messageType = 'image';
+        }
+
+        const fileInfo = {
+            fileUrl,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            messageType,
+            mimeType: req.file.mimetype
+        };
+
+        sendResponse(res, 200, true, 'File uploaded successfully', fileInfo);
+    } catch (error) {
+        console.error('File upload error:', error);
+        sendResponse(res, 500, false, 'File upload failed');
+    }
+});
