@@ -175,7 +175,7 @@ const BuyerDashboardNavbar = ({ buyerUser, cartItemCount, theme, toggleTheme }) 
                             {isProfileDropdownOpen && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg py-1 z-10">
                                     <button
-                                        onClick={() => handleNavigation('/profile')}
+                                        onClick={() => handleNavigation('/buyer/profile')}
                                         className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left"
                                     >
                                         My Profile
@@ -187,7 +187,7 @@ const BuyerDashboardNavbar = ({ buyerUser, cartItemCount, theme, toggleTheme }) 
                                         Settings
                                     </button>
                                     <button
-                                        onClick={() => handleNavigation('/login')} // Assuming /login is your login route for logout
+                                        onClick={() => handleNavigation('/buyer/login')} // Assuming /login is your login route for logout
                                         className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left"
                                     >
                                         Logout

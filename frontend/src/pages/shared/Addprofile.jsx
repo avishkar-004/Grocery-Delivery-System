@@ -22,7 +22,7 @@ const ProfilePage = () => {
   // Get auth token from localStorage (adjust based on your auth implementation)
   const getAuthToken = () => {
     return (
-      localStorage.getItem('buyer_token')
+      localStorage.getItem('admin_token')
     );
   };
 

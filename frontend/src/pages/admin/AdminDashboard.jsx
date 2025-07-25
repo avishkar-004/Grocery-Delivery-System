@@ -442,7 +442,7 @@ const AdminDashboard = () => {
                 </p>
               </div>
             </div>
-            
+
           </div>
 
           {/* Analytics Charts Section */}

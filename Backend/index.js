@@ -15,7 +15,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 require('dotenv').config();
 
-// ========================================
+//=============================================
 // SECTION 1: DEPENDENCIES & CONFIGURATION
 // ========================================
 
@@ -5926,6 +5926,49 @@ app.put('/api/profile/update', authenticateToken, [
     body('address').optional().trim().isLength({ min: 1 }).withMessage('Valid address required'),
     body('latitude').optional().isFloat().withMessage('Valid latitude required'),
     body('longitude').optional().isFloat().withMessage('Valid longitude required')
+], handleValidationErrors, async (req, res) => {
+    try {
+        const { role, id } = req.user;
+
+        const allowedFieldsByRole = {
+            buyer: ['name', 'phone', 'gender', 'date_of_birth'],
+            seller: ['name', 'phone', 'gender', 'date_of_birth', 'address', 'latitude', 'longitude'],
+            admin: ['name', 'email', 'phone'],
+        };
+
+        const allowedFields = allowedFieldsByRole[role] || [];
+
+        const updates = [];
+        const values = [];
+
+        allowedFields.forEach((field) => {
+            if (req.body[field] !== undefined) {
+                updates.push(`${field} = ?`);
+                values.push(req.body[field]);
+            }
+        });
+
+        if (updates.length === 0) {
+            return sendResponse(res, 400, false, 'No valid fields to update for this role');
+        }
+
+        updates.push('updated_at = NOW()');
+        values.push(id);
+
+        const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+        await dbPool.execute(query, values);
+
+        sendResponse(res, 200, true, 'Profile updated successfully');
+    } catch (error) {
+        console.error('Update profile error:', error);
+        sendResponse(res, 500, false, 'Failed to update profile');
+    }
+});
+app.put('/api/prokils/upkates', authenticateToken, [
+    body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
+    body('phone').optional().isMobilePhone().withMessage('Valid phone number required'),
+    body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Valid gender required'),
+    body('date_of_birth').optional().isDate().withMessage('Valid date required'),
 ], handleValidationErrors, async (req, res) => {
     try {
         const { role, id } = req.user;

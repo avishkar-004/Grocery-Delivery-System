@@ -336,6 +336,15 @@ const ProfilePage = () => {
             <CardTitle className="flex items-center justify-between">
               My Profile
               <div className="flex gap-3">
+
+                <Button
+                    onClick={() => navigate("/admin/dashboard")}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Lock size={16} />
+                 Back
+                </Button>
+
                 <Button
                   onClick={() => setShowPasswordModal(true)}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"

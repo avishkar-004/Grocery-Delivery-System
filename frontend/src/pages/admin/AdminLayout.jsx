@@ -400,11 +400,12 @@ const AdminLayout = ({ children }) => {
                         {isProfileDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 transform origin-top-right transition-all duration-200 scale-95 opacity-0 animate-scaleIn">
                                 <button
-                                    onClick={handleProfileEdit}
+                                    onClick={() => navigate("/admin/profile")}
                                     className="flex items-center w-full px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                                 >
                                     <Edit className="w-4 h-4 mr-2" />
                                     Edit Profile
+
                                 </button>
                                 <button
                                     onClick={handleLogout}

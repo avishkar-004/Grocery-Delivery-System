@@ -298,6 +298,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     setConfirmModalMessage(actionMap[actionType]);
     setPendingConfirmAction({ userId, actionType }); // Store action details
     setShowConfirmModal(true); // This opens the confirmation modal
+    re
     console.log("[handleUserAction] Confirmation modal opened with pending action.");
   };
 

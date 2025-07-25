@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { IndianRupee } from 'lucide-react';
 import { io } from 'socket.io-client'; // 👈 ADDED THIS IMPORT
-
+import { ChevronLeft, ChevronRight } from 'lucide-react'; // if using lucide icons
 import { useNavigate } from 'react-router-dom';
 import BuyerDashboardNavbar from './BuyerDashboardNavbar';
 import {
@@ -1108,8 +1108,10 @@ const MyOrders = () => {
 
 
     const OrderCard = ({ order }) => {
-        const isPendingOrInProgress = ['pending', 'in_progress'].includes(order.status);
+        const isPendingOrInProgress = ['pending', 'in_progress','accepted'].includes(order.status);
         const isCancelled = order.status === 'cancelled';
+        const isCompleted = order.status === 'completed';
+
 
         return (
             <div
@@ -1157,6 +1159,17 @@ const MyOrders = () => {
                             Reorder
                         </button>
                     )}
+                    {isCompleted && (
+                        <button
+                            onClick={() => handleReorder(order)}
+                            className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 transition duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                            <ShoppingCart size={16} className="mr-1" />
+                            Reorder
+                        </button>
+                    )}
+
+
 
                     <button
                         onClick={() => handleViewDetails(order)}
@@ -1217,17 +1230,21 @@ const MyOrders = () => {
                         <button
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                             disabled={currentPage === 1 || loadingOrders}
-                            className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md disabled:opacity-50"
+                            className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                         >
-                            Previous
+                            <ChevronLeft size={18} />
                         </button>
-                        <span className="text-gray-700 dark:text-gray-300">Page {currentPage} of {totalPages}</span>
+
+                        <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                Page {currentPage} / {totalPages}
+                        </span>
+
                         <button
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                             disabled={currentPage === totalPages || loadingOrders}
-                            className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md disabled:opacity-50"
+                            className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                         >
-                            Next
+                            <ChevronRight size={18} />
                         </button>
                     </div>
                 </div>
