@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Mail,
   KeyRound,
@@ -85,7 +85,7 @@ const SellerLogin = () => {
   // Dark mode state
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedMode = localStorage.getItem('theme');
-    return savedMode === 'dark' ? true : false;
+    return savedMode === 'dark';
   });
 
   // Apply dark mode class to HTML on load and state change
@@ -162,13 +162,8 @@ const SellerLogin = () => {
     }
 
     const passwordStrengthResult = checkPasswordStrengthLocally(formData.newPassword);
-    if (passwordStrengthResult.rating === 'weak') {
-      newErrors.newPassword = `Weak password: ${passwordStrengthResult.tip}`;
-      isValid = false;
-    } else if (passwordStrengthResult.rating === 'medium') {
-      newErrors.newPassword = `Medium password: ${passwordStrengthResult.tip}`;
-      // Allow medium but show warning or prevent submission based on desired strictness
-      // For now, it will mark as invalid if medium, as requested by the initial code logic.
+    if (passwordStrengthResult.rating !== 'strong') {
+      newErrors.newPassword = passwordStrengthResult.tip;
       isValid = false;
     }
 
@@ -211,7 +206,7 @@ const SellerLogin = () => {
       const data = await response.json();
       console.log("Login response:", data);
 
-      if (data.success) {
+      if (response.ok) {
         showToast("Login successful! Redirecting...", "success");
         if (data.data?.token) {
           localStorage.setItem("seller_token", data.data.token);
@@ -219,7 +214,13 @@ const SellerLogin = () => {
         }
         navigate("/seller/dashboard"); // Redirect to seller dashboard
       } else {
-        showToast(data.message || "Login failed. Please check your credentials.", "error");
+        if (response.status === 403) {
+          showToast(data.message || "Your account has been suspended. Please contact support.", "error");
+        } else if (response.status === 401) {
+          showToast(data.message || "Invalid credentials. Please check your email and password.", "error");
+        } else {
+          showToast(data.message || "An unexpected error occurred.", "error");
+        }
       }
     } catch (error) {
       console.error("Login network error:", error);
@@ -287,11 +288,13 @@ const SellerLogin = () => {
       const data = await response.json();
 
       if (data.success) {
-        showToast(data.message || "Password reset successful! You can now log in.", "success");
-        setFormMode('login'); // Go back to login form
-        // Clear password fields after successful reset for security
-        setFormData(prev => ({ ...prev, password: '', newPassword: '', confirmNewPassword: '', otp: '' }));
-        setPasswordStrength({ rating: '', tip: '' }); // Clear password strength display
+        showToast("Password reset successfully! Redirecting to login...", "success");
+        setTimeout(() => {
+          setFormMode('login'); // Go back to login form
+          // Clear password fields after successful reset for security
+          setFormData(prev => ({ ...prev, password: '', newPassword: '', confirmNewPassword: '', otp: '' }));
+          setPasswordStrength({ rating: '', tip: '' }); // Clear password strength display
+        }, 2000);
       } else {
         showToast(data.message || "Password reset failed. Invalid OTP or other error.", "error");
       }

@@ -420,10 +420,10 @@ const Cart = () => {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                showToast('Order placed successfully!', 'success');
+                showToast('Order placed successfully! Redirecting...', 'success');
                 setCartItems([]);
                 localStorage.removeItem('generalNotes'); // Clear general notes on successful order
-                navigate('/buyer/dashboard');
+                navigate('/buyer/orders'); // <-- UPDATED: Redirect to orders page
             } else {
                 setError(data.message || 'Failed to place order.');
                 showToast(data.message || 'Failed to place order.', 'error');

@@ -1,3 +1,4 @@
+// UserManagement.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
@@ -13,7 +14,6 @@ import {
   CheckCircle,
   AlertCircle,
   Mail, // Import Mail icon
-  Phone,
   Lock,
   Package, // For Products link
   UserCircle, // For Profile icon
@@ -51,7 +51,6 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
   const [newAdminData, setNewAdminData] = useState({
     name: "",
     email: "",
-    phone: "",
     password: "",
   });
 
@@ -65,7 +64,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
   // Stores the details needed for the action, not the action function itself
   const [pendingConfirmAction, setPendingConfirmAction] = useState(null); // { userId, actionType }
 
-  // Email Modal States
+  // Email Modal states
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailModalTargetUser, setEmailModalTargetUser] = useState(null); // For single user email: { id, email, name }
   const [emailModalTargetType, setEmailModalTargetType] = useState(""); // 'single', 'active_buyers', 'active_sellers'
@@ -101,7 +100,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
         console.log(`[fetchUsers] Fetching ${type} data. Page: ${page}, Limit: ${limit}, Search: "${searchTerm}", Status Filter: "${statusFilter}"`);
         const adminToken = localStorage.getItem("admin_token");
         if (!adminToken) {
-          showToast("Authentication required. Please log in.", "error");
+          showToast?.("Authentication required. Please log in.", "error"); // Changed
           navigate("/admin/login");
           setLoading(false);
           console.log("[fetchUsers] No admin token found, redirecting.");
@@ -163,18 +162,18 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
             }
             console.log(`[fetchUsers] Successfully updated ${type} state with filtered data.`);
           } else {
-            showToast(data.message || `Failed to fetch ${type}.`, "error");
+            showToast?.(data.message || `Failed to fetch ${type}.`, "error"); // Changed
             console.error(`[fetchUsers] API Error for ${type}:`, data.message);
           }
         } catch (error) {
           console.error(`[fetchUsers] Network error fetching ${type}:`, error);
-          showToast(`Network error. Could not load ${type} data.`, "error");
+          showToast?.(`Network error. Could not load ${type} data.`, "error"); // Changed
         } finally {
           setLoading(false);
           console.log(`[fetchUsers] Loading set to false for ${type}.`);
         }
       },
-      [navigate]
+      [navigate, showToast] // Added showToast to dependencies
   );
 
   // Effect to fetch data based on active tab and pagination/debounced search
@@ -241,7 +240,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     setLoading(true);
     const adminToken = localStorage.getItem("admin_token");
     if (!adminToken) {
-      showToast("Authentication required. Please log in.", "error");
+      showToast?.("Authentication required. Please log in.", "error"); // Changed
       navigate("/admin/login");
       setLoading(false);
       console.log("[executeConfirmedAction] No admin token found, redirecting.");
@@ -260,7 +259,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
       console.log(`[executeConfirmedAction] API Response for ${actionType}:`, data);
 
       if (data.success) {
-        showToast(successMsg, "success");
+        showToast?.(successMsg, "success"); // Changed
         // Re-fetch data for the active tab to reflect changes
         console.log(`[executeConfirmedAction] Action successful, re-fetching data for ${activeTab}.`);
         if (activeTab === "buyers") {
@@ -271,12 +270,12 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
           fetchUsers("admins");
         }
       } else {
-        showToast(data.message || errorMsg, "error");
+        showToast?.(data.message || errorMsg, "error"); // Changed
         console.error(`[executeConfirmedAction] API Error for ${actionType}:`, data.message);
       }
     } catch (error) {
       console.error(`[executeConfirmedAction] Network error during ${actionType} action:`, error);
-      showToast(`Network error during ${actionType}. Please try again.`, "error");
+      showToast?.(`Network error during ${actionType}. Please try again.`, "error"); // Changed
     } finally {
       setLoading(false);
       setShowConfirmModal(false); // Close modal
@@ -298,7 +297,6 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     setConfirmModalMessage(actionMap[actionType]);
     setPendingConfirmAction({ userId, actionType }); // Store action details
     setShowConfirmModal(true); // This opens the confirmation modal
-    re
     console.log("[handleUserAction] Confirmation modal opened with pending action.");
   };
 
@@ -306,7 +304,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
   const handleBulkAction = async () => {
     console.log(`[handleBulkAction] Attempting bulk action: ${bulkActionType} for user IDs:`, selectedUserIds);
     if (selectedUserIds.length === 0 || !bulkActionType) {
-      showToast("Please select users and an action.", "error");
+      showToast?.("Please select users and an action.", "error"); // Changed
       console.warn("[handleBulkAction] No users selected or no action type.");
       return;
     }
@@ -341,7 +339,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     setLoading(true);
     const adminToken = localStorage.getItem("admin_token");
     if (!adminToken) {
-      showToast("Authentication required. Please log in.", "error");
+      showToast?.("Authentication required. Please log in.", "error"); // Changed
       navigate("/admin/login");
       setLoading(false);
       console.log("[executeConfirmedBulkAction] No admin token found, redirecting.");
@@ -364,7 +362,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
       console.log(`[executeConfirmedBulkAction] API Response for bulk action:`, data);
 
       if (data.success) {
-        showToast(`${data.data.affectedRows} users ${actionType}d successfully.`, "success");
+        showToast?.(`${data.data.affectedRows} users ${actionType}d successfully.`, "success"); // Changed
         setSelectedUserIds([]); // Clear selections
         // Re-fetch data for the active tab to reflect changes
         console.log(`[executeConfirmedBulkAction] Bulk action successful, re-fetching data for ${activeTab}.`);
@@ -376,12 +374,12 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
           fetchUsers("admins");
         }
       } else {
-        showToast(data.message || "Bulk action failed.", "error");
+        showToast?.(data.message || "Bulk action failed.", "error"); // Changed
         console.error(`[executeConfirmedBulkAction] API Error for bulk action:`, data.message);
       }
     } catch (error) {
       console.error("Error performing bulk action:", error);
-      showToast("Network error during bulk action. Please try again.", "error");
+      showToast?.("Network error during bulk action. Please try again.", "error"); // Changed
     } finally {
       setLoading(false);
       setShowConfirmModal(false);
@@ -428,7 +426,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     setLoading(true);
     const adminToken = localStorage.getItem("admin_token");
     if (!adminToken) {
-      showToast("Authentication required. Please log in.", "error");
+      showToast?.("Authentication required. Please log in.", "error"); // Changed
       navigate("/admin/login");
       setLoading(false);
       console.log("[handleCreateAdmin] No admin token found, redirecting.");
@@ -448,18 +446,18 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
       console.log("[handleCreateAdmin] API Response:", data);
 
       if (data.success) {
-        showToast(`Admin created with ID: ${data.data.adminId}`, "success");
+        showToast?.(`Admin created with ID: ${data.data.adminId}`, "success"); // Changed
         setShowCreateAdminModal(false);
-        setNewAdminData({ name: "", email: "", phone: "", password: "" });
+        setNewAdminData({ name: "", email: "", password: "" });
         fetchUsers("admins"); // Refresh admin list
         console.log("[handleCreateAdmin] Admin created successfully, refreshing admin list.");
       } else {
-        showToast(data.message || "Failed to create admin.", "error");
+        showToast?.(data.message || "Failed to create admin.", "error"); // Changed
         console.error("[handleCreateAdmin] API Error:", data.message);
       }
     } catch (error) {
       console.error("[handleCreateAdmin] Network error creating admin:", error);
-      showToast("Network error. Could not create admin.", "error");
+      showToast?.("Network error. Could not create admin.", "error"); // Changed
     } finally {
       setLoading(false);
       console.log("[handleCreateAdmin] Loading set to false.");
@@ -490,7 +488,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     const adminToken = localStorage.getItem("admin_token");
 
     if (!adminToken) {
-      showToast("Authentication required. Please log in.", "error");
+      showToast?.("Authentication required. Please log in.", "error"); // Changed
       navigate("/admin/login");
       setSendingEmail(false);
       console.log("[handleSendEmail] No admin token found, redirecting.");
@@ -498,7 +496,7 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
     }
 
     if (!subject || !bodyText) {
-      showToast("Subject and Body are required for the email.", "error");
+      showToast?.("Subject and Body are required for the email.", "error"); // Changed
       setSendingEmail(false);
       return;
     }
@@ -529,18 +527,18 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
       console.log("[handleSendEmail] API Response:", data);
 
       if (data.success) {
-        showToast(data.message, "success");
+        showToast?.(data.message, "success"); // Changed
         setShowEmailModal(false); // Close modal on success
         setEmailModalTargetUser(null); // Reset target user
         setEmailModalTargetType(""); // Reset target type
         console.log("[handleSendEmail] Email sent successfully, modal closed.");
       } else {
-        showToast(data.message || "Failed to send email.", "error");
+        showToast?.(data.message || "Failed to send email.", "error"); // Changed
         console.error("[handleSendEmail] API Error:", data.message);
       }
     } catch (error) {
       console.error("[handleSendEmail] Network error sending email:", error);
-      showToast("Network error. Could not send email.", "error");
+      showToast?.("Network error. Could not send email.", "error"); // Changed
     } finally {
       setSendingEmail(false);
       console.log("[handleSendEmail] Sending email loading set to false.");
@@ -836,27 +834,27 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
 
                   {activeTab === "sellers" && (
                       <UserTable
-                          users={sellers}
-                          title="Seller Accounts"
-                          pagination={{
-                            currentPage: sellerPage,
-                            totalPages: sellerTotalPages,
-                            onPageChange: handleSellerPageChange,
-                          }}
-                          searchTerm={sellerSearchTerm} // Pass non-debounced term for input value
-                          onSearchChange={setSellerSearchTerm} // Update non-debounced term
-                          statusFilter={sellerFilterStatus} // Pass current filter status
-                          onStatusFilterChange={setSellerFilterStatus} // Pass setter for status filter
-                          onUserAction={handleUserAction}
-                          selectedUserIds={selectedUserIds}
-                          onUserSelect={handleUserSelect}
-                          onSelectAll={handleSelectAll}
-                          onBulkAction={handleBulkAction}
-                          setBulkActionType={setBulkActionType}
-                          showBulkActions={true}
-                          onSendEmail={openEmailModalForSingleUser} // Pass email function
-                          onSendAllEmail={() => openEmailModalForBulk("active_sellers")} // Pass send all function
-                      />
+                       users={sellers}
+                       title="Seller Accounts"
+                       pagination={{
+                           currentPage: sellerPage,
+                           totalPages: sellerTotalPages,
+                           onPageChange: handleSellerPageChange,
+                       }}
+                       searchTerm={sellerSearchTerm} // Pass non-debounced term for input value
+                       onSearchChange={setSellerSearchTerm} // Update non-debounced term
+                       statusFilter={sellerFilterStatus} // Pass current filter status
+                       onStatusFilterChange={setSellerFilterStatus} // Pass setter for status filter
+                       onUserAction={handleUserAction}
+                       selectedUserIds={selectedUserIds}
+                       onUserSelect={handleUserSelect} // <-- Corrected line
+                       onSelectAll={handleSelectAll}
+                       onBulkAction={handleBulkAction}
+                       setBulkActionType={setBulkActionType}
+                       showBulkActions={true}
+                       onSendEmail={openEmailModalForSingleUser} // Pass email function
+                       onSendAllEmail={() => openEmailModalForBulk("active_sellers")} // Pass send all function
+                   />
                   )}
 
                   {activeTab === "admins" && (
@@ -917,27 +915,6 @@ const UserManagement = ({ isDarkMode, showToast, handleLogout }) => {
                             onChange={handleNewAdminChange}
                             className="pl-10 pr-4 py-2 w-full border rounded-md bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-purple-500 focus:border-purple-500 transition-colors duration-200"
                             placeholder="admin@example.com"
-                            required
-                        />
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <label
-                          htmlFor="phone"
-                          className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2"
-                      >
-                        Phone
-                      </label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="tel"
-                            id="phone"
-                            name="phone"
-                            value={newAdminData.phone}
-                            onChange={handleNewAdminChange}
-                            className="pl-10 pr-4 py-2 w-full border rounded-md bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-purple-500 focus:border-purple-500 transition-colors duration-200"
-                            placeholder="e.g., +1234567890"
                             required
                         />
                       </div>
@@ -1162,7 +1139,6 @@ const UserTable = ({
 
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Phone</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider rounded-tr-lg">Actions</th>
             </tr>
@@ -1190,9 +1166,6 @@ const UserTable = ({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {user.phone}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
               <span
@@ -1243,7 +1216,7 @@ const UserTable = ({
                 ))
             ) : (
                 <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                     No users found.
                   </td>
                 </tr>
@@ -1286,24 +1259,23 @@ const AdminTable = ({ admins, title, onUserAction, onCreateAdmin }) => {
   const isDarkMode = document.documentElement.classList.contains("dark");
 
   return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 animate-fade-in-up">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
-          <button
-              onClick={onCreateAdmin}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors duration-200 shadow-md"
-          >
-            <UserPlus className="w-5 h-5" />
-            <span>Create New Admin</span>
-          </button>
-        </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 animate-fade-in-up">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
+        <button
+          onClick={onCreateAdmin}
+          className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors duration-200 shadow-md"
+        >
+          <UserPlus className="w-5 h-5" />
+          <span>Create New Admin</span>
+        </button>
+      </div>
 
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            {/* Purple Thead */}
-            <thead className="bg-gradient-to-r from-purple-500 to-purple-700 text-white">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          {/* Purple Thead */}
+          <thead className="bg-gradient-to-r from-purple-500 to-purple-700 text-white">
             <tr>
-
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                 Name
               </th>
@@ -1311,92 +1283,60 @@ const AdminTable = ({ admins, title, onUserAction, onCreateAdmin }) => {
                 Email
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                Phone
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider rounded-tr-lg">
-                Actions
-              </th>
+              
             </tr>
-            </thead>
+          </thead>
 
-            {/* Tbody with hover effect */}
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          {/* Tbody with hover effect */}
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {admins.length > 0 ? (
-                admins.map((admin) => (
-                    <tr
-                        key={admin.id}
-                        className="hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-colors duration-200"
-                    >
-                      {/* Purple text for ID */}
-
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {admin.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {admin.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {admin.phone}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-              <span
-                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      admin.is_suspended
+              admins.map((admin) => (
+                <tr
+                  key={admin.id}
+                  className="hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-colors duration-200"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    {admin.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    {admin.email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        admin.is_suspended
                           ? "bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100"
                           : "bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100"
-                  }`}
-              >
-                {admin.is_suspended ? "Suspended" : "Active"}
-              </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                              onClick={() =>
-                                  onUserAction(admin.id, admin.is_suspended ? "activate" : "suspend")
-                              }
-                              className={`p-2 rounded-full ${
-                                  admin.is_suspended
-                                      ? "bg-green-500 hover:bg-green-600"
-                                      : "bg-orange-500 hover:bg-orange-600"
-                              } text-white transition-colors duration-200`}
-                              title={admin.is_suspended ? "Activate Admin" : "Suspend Admin"}
-                          >
-                            {admin.is_suspended ? (
-                                <UserCheck className="w-4 h-4" />
-                            ) : (
-                                <UserX className="w-4 h-4" />
-                            )}
-                          </button>
-                          <button
-                              onClick={() => onUserAction(admin.id, "remove")}
-                              className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors duration-200"
-                              title="Remove Admin"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                ))
-            ) : (
-                <tr>
-                  <td
-                      colSpan="6"
-                      className="px-6 py-4 text-center text-gray-500 dark:text-gray-400"
-                  >
-                    No admin accounts found.
+                      }`}
+                    >
+                      {admin.is_suspended ? "Suspended" : "Active"}
+                    </span>
                   </td>
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {/* <div className="flex space-x-2">
+                      {/* Both suspend/activate and remove buttons are removed for admin users
+                          as backend business logic prohibits these actions via this UI. */}
+                      {/* If there were other permissible actions for admins, they would go here. */}
+                    {/* </div>  */}
+                  {/* </td>  */}
                 </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan="4"
+                  className="px-6 py-4 text-center text-gray-500 dark:text-gray-400"
+                >
+                  No admin accounts found.
+                </td>
+              </tr>
             )}
-            </tbody>
-          </table>
-        </div>
-
+          </tbody>
+        </table>
       </div>
+    </div>
   );
 };
 export default UserManagement;

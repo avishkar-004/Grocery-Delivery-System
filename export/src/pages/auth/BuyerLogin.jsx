@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Mail,
   KeyRound,
@@ -84,7 +84,7 @@ const BuyerLogin = () => {
   // Dark mode state
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedMode = localStorage.getItem('theme');
-    return savedMode === 'dark' ? true : false;
+    return savedMode === 'dark';
   });
 
   // Apply dark mode class to HTML on load and state change
@@ -162,12 +162,8 @@ const BuyerLogin = () => {
 
     // Use local password strength checker
     const passwordStrengthResult = checkPasswordStrengthLocally(formData.newPassword);
-    if (passwordStrengthResult.rating === 'weak') {
-      newErrors.newPassword = `Weak password: ${passwordStrengthResult.tip}`;
-      isValid = false;
-    } else if (passwordStrengthResult.rating === 'medium') {
-      newErrors.newPassword = `Medium password: ${passwordStrengthResult.tip}`;
-      // Allow medium but show warning or prevent submission based on desired strictness
+    if (passwordStrengthResult.rating !== 'strong') {
+      newErrors.newPassword = passwordStrengthResult.tip;
       isValid = false;
     }
 
@@ -210,7 +206,7 @@ const BuyerLogin = () => {
       const data = await response.json();
       console.log("Login response:", data);
 
-      if (data.success) {
+      if (response.ok) { // Status 200-299
         showToast("Login successful! Redirecting...", "success");
         if (data.data?.token) {
           localStorage.setItem("buyer_token", data.data.token);
@@ -218,7 +214,14 @@ const BuyerLogin = () => {
         }
         navigate("/buyer/dashboard");
       } else {
-        showToast(data.message || "Login failed. Please check your credentials.", "error");
+        // Handle errors based on status code
+        if ( data.message.is_active === 0) { // 403 Forbidden for suspended
+          showToast(data.message || "Your account has been suspended. Please contact support.", "error");
+        } else if (response.status === 401) { // 401 Unauthorized for invalid credentials
+          showToast(data.message || "Invalid credentials. Please check your email and password.", "error");
+        } else { // Other errors
+          showToast(data.message || "An unexpected error occurred.", "error");
+        }
       }
     } catch (error) {
       console.error("Login network error:", error);
@@ -286,11 +289,13 @@ const BuyerLogin = () => {
       const data = await response.json();
 
       if (data.success) {
-        showToast(data.message || "Password reset successful! You can now log in.", "success");
-        setFormMode('login'); // Go back to login form
-        // Clear password fields after successful reset for security
-        setFormData(prev => ({ ...prev, password: '', newPassword: '', confirmNewPassword: '', otp: '' }));
-        setPasswordStrength({ rating: '', tip: '' }); // Clear password strength display
+        showToast("Password reset successfully! Redirecting to login...", "success");
+        setTimeout(() => {
+          setFormMode('login'); // Go back to login form
+          // Clear password fields after successful reset for security
+          setFormData(prev => ({ ...prev, password: '', newPassword: '', confirmNewPassword: '', otp: '' }));
+          setPasswordStrength({ rating: '', tip: '' }); // Clear password strength display
+        }, 2000); // 2-second delay
       } else {
         showToast(data.message || "Password reset failed. Invalid OTP or other error.", "error");
       }

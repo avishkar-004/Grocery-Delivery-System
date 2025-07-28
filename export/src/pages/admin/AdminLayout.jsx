@@ -32,6 +32,7 @@ const AdminLayout = ({ children }) => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [profileData, setProfileData] = useState({});
     const [isEditing, setIsEditing] = useState(false);
+    // Corrected useState initializations
     const [editFormData, setEditFormData] = useState({});
     const [passwordForm, setPasswordForm] = useState({
         current_password: '',
@@ -39,6 +40,7 @@ const AdminLayout = ({ children }) => {
         confirm_password: ''
     });
     const [showPasswordForm, setShowPasswordForm] = useState(false);
+    // Corrected useState initializations
     const [showPasswords, setShowPasswords] = useState({
         current: false,
         new: false,
@@ -146,11 +148,10 @@ const AdminLayout = ({ children }) => {
                 },
                 body: JSON.stringify(editFormData)
             });
-
             const data = await response.json();
 
             if (data.success) {
-                setProfileData(editFormData);
+                await fetchProfile(); // Re-fetch profile data after a successful update
                 setIsEditing(false);
                 showToast("Profile updated successfully", "success");
             } else {
@@ -169,12 +170,10 @@ const AdminLayout = ({ children }) => {
             showToast("New passwords don't match", "error");
             return;
         }
-
         if (passwordForm.new_password.length < 6) {
             showToast("New password must be at least 6 characters", "error");
             return;
         }
-
         try {
             setLoading(true);
             const response = await fetch('/api/profile/change-password', {
@@ -183,15 +182,11 @@ const AdminLayout = ({ children }) => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
                 },
-                body: JSON.stringify({
-                    current_password: passwordForm.current_password,
-                    new_password: passwordForm.new_password
-                })
+                body: JSON.stringify({ current_password: passwordForm.current_password, new_password: passwordForm.new_password })
             });
-
             const data = await response.json();
-
             if (data.success) {
+                await fetchProfile(); // Re-fetch profile data after a successful password change
                 setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
                 setShowPasswordForm(false);
                 showToast("Password changed successfully", "success");
@@ -261,7 +256,7 @@ const AdminLayout = ({ children }) => {
             if (data.success) {
                 localStorage.removeItem("admin_token");
                 localStorage.removeItem("admin_user");
-                navigate("/admin/login");
+                navigate("/");
                 showToast("Account deleted successfully", "success");
             } else {
                 showToast(data.message || "Failed to delete account", "error");
@@ -291,7 +286,7 @@ const AdminLayout = ({ children }) => {
             if (data.success) {
                 localStorage.removeItem("admin_token");
                 localStorage.removeItem("admin_user");
-                navigate("/admin/login");
+                navigate("/");
                 showToast("Logged out successfully.", "success");
             } else {
                 showToast(data.message || "Logout failed.", "error");
@@ -303,13 +298,6 @@ const AdminLayout = ({ children }) => {
             setIsProfileDropdownOpen(false);
         }
     };
-
-    const childrenWithProps = React.Children.map(children, child => {
-        if (React.isValidElement(child)) {
-            return React.cloneElement(child, { isDarkMode, showToast, handleLogout });
-        }
-        return child;
-    });
 
     const togglePasswordVisibility = (field) => {
         setShowPasswords(prev => ({
@@ -405,7 +393,6 @@ const AdminLayout = ({ children }) => {
                                 >
                                     <Edit className="w-4 h-4 mr-2" />
                                     Edit Profile
-
                                 </button>
                                 <button
                                     onClick={handleLogout}
@@ -732,11 +719,12 @@ const AdminLayout = ({ children }) => {
 
             {/* Main content area */}
             <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-                {childrenWithProps}
+                {children}
             </main>
 
             {/* Tailwind CSS keyframes for animations */}
-            <style jsx>{`
+            {/* Removed the 'jsx' attribute */}
+            <style>{`
                 @keyframes slideInDown {
                     from {
                         transform: translate(-50%, -100px);

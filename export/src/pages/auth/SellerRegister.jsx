@@ -99,8 +99,8 @@ const SellerRegister = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
-  // Removed isCheckingPassword as LLM call is removed
-  // const [isCheckingPassword, setIsCheckingPassword] = useState(false);
+  const [isResendingOTP, setIsResendingOTP] = useState(false);
+
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -132,7 +132,7 @@ const SellerRegister = () => {
   }, [isDarkMode]);
 
   // OTP Timer states
-  const [otpTimer, setOtpTimer] = useState(60); // 10 minutes in seconds
+  const [otpTimer, setOtpTimer] = useState(600); // 10 minutes in seconds
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [canResendOTP, setCanResendOTP] = useState(false);
 
@@ -460,7 +460,7 @@ const SellerRegister = () => {
       if (data.success) {
         showToast("OTP sent to your email! Please check your inbox!", "success");
         setCurrentStep(4); // Move to OTP verification step
-        setOtpTimer(60); // Reset to 10 minutes
+        setOtpTimer(600); // Reset to 10 minutes
         setIsTimerActive(true);
         setCanResendOTP(false);
       } else {
@@ -513,10 +513,11 @@ const SellerRegister = () => {
         showToast("Registration completed successfully! Please sign in.", "success");
         if (data.data?.token) {
           localStorage.setItem('seller_token', data.data.token);
-          // Corrected typo and stringify user object for localStorage
           localStorage.setItem('seller_user', JSON.stringify(data.data.user));
         }
-        navigate('/seller/login'); // Redirect to seller login page
+        setTimeout(() => {
+          navigate('/seller/login'); // Redirect to seller login page after a delay
+        }, 2000); // 2-second delay
       } else {
         showToast(data.message || "OTP verification failed. Please check your OTP and try again.", "error");
       }
@@ -735,30 +736,7 @@ const SellerRegister = () => {
                   </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label htmlFor="latitude" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Latitude</label>
-                  <input
-                      id="latitude"
-                      type="text"
-                      placeholder="Auto-filled"
-                      value={formData.latitude}
-                      readOnly
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="longitude" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Longitude</label>
-                  <input
-                      id="longitude"
-                      type="text"
-                      placeholder="Auto-filled"
-                      value={formData.longitude}
-                      readOnly
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed"
-                  />
-                </div>
-              </div>
+
             </div>
         );
       case 3: // Security step

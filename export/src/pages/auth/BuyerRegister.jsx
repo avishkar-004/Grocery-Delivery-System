@@ -140,7 +140,7 @@ const BuyerRegister = () => {
           }
           return timer - 1;
         });
-      }, 100);
+      }, 1000);
     } else if (!isTimerActive) {
       clearInterval(interval);
     }
@@ -267,7 +267,7 @@ const BuyerRegister = () => {
       if (data.success) {
         showToast("OTP sent to your email! Please check your inbox!", "success");
         setCurrentStep(3); // Move to OTP verification step
-        setOtpTimer(60); // Reset to 10 minutes
+        setOtpTimer(600); // Reset to 10 minutes
         setIsTimerActive(true);
         setCanResendOTP(false);
       } else {
@@ -323,13 +323,14 @@ const BuyerRegister = () => {
       console.log("OTP verification successful response received:", data);
 
       if (data.success) {
-        showToast("Registration completed successfully! Please sign in.", "success");
+        showToast("Registered for buyer successfully! Redirecting to login...", "success");
         if (data.data?.token) {
           localStorage.setItem('buyer_token', data.data.token);
-          // FIX: Corrected typo from JSON.data.user to data.data.user
           localStorage.setItem('buyer_user', JSON.stringify(data.data.user)); // Stringify user object for localStorage
         }
-        navigate('/buyer/login'); // Redirect to buyer login page
+        setTimeout(() => {
+          navigate('/buyer/login'); // Redirect to buyer login page after a delay
+        }, 2000); // 2-second delay
       } else {
         showToast(data.message || "OTP verification failed. Please check your OTP and try again.", "error");
       }

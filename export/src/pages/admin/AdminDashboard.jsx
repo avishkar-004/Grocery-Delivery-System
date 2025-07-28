@@ -18,19 +18,18 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
 import {
   Users,
   DollarSign,
   ShoppingCart,
-  BookOpen,
+  Tag,
   Trash2,
 } from "lucide-react";
 
-// Import the new AdminLayout component
 import AdminLayout from './AdminLayout';
 
-// Register Chart.js components
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -41,13 +40,12 @@ ChartJS.register(
     RadialLinearScale,
     Title,
     Tooltip,
-    Legend
+    Legend,
+    Filler
 );
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-
-  // Removed isDarkMode and toast state, as they are now in AdminLayout
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState({
     revenue: [],
@@ -59,21 +57,18 @@ const AdminDashboard = () => {
       topSellers: [],
     },
   });
+  // Removed state for revenue period and year
   const [revenuePeriod, setRevenuePeriod] = useState("monthly");
   const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
 
-  // Function to show toast (will be passed down from AdminLayout if needed, or use context)
-  // For now, let's assume a global toast context or direct passing if this component needs to trigger toasts.
-  // For this example, I'll keep a placeholder `showToast` for dashboard-specific errors.
+
   const showToast = (message, type = "success") => {
-    // In a real app, you'd use a context or prop from AdminLayout for this
     console.log(`Toast: ${type} - ${message}`);
   };
 
-
   useEffect(() => {
     fetchDashboardData();
-  }, [revenuePeriod, revenueYear]); // Refetch when period or year changes
+  }, [revenuePeriod, revenueYear]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -91,7 +86,7 @@ const AdminDashboard = () => {
     };
 
     try {
-      // Fetch Revenue Data
+      // Retained the revenue fetch call as other metrics depend on it.
       const revenueRes = await fetch(
           `http://localhost:3000/api/admin/analytics/revenue?period=${revenuePeriod}&year=${revenueYear}`,
           { headers }
@@ -106,7 +101,6 @@ const AdminDashboard = () => {
         );
       }
 
-      // Fetch Active Users Data
       const activeUsersRes = await fetch(
           "http://localhost:3000/api/admin/analytics/active-users",
           { headers }
@@ -124,7 +118,6 @@ const AdminDashboard = () => {
         );
       }
 
-      // Fetch Business Metrics Data
       const businessMetricsRes = await fetch(
           "http://localhost:3000/api/admin/analytics/business-metrics",
           { headers }
@@ -150,7 +143,6 @@ const AdminDashboard = () => {
   };
 
   const handleCleanup = async () => {
-    // Replace window.confirm with a custom modal if needed, similar to UserManagement
     if (
         !window.confirm(
             "Are you sure you want to run the system cleanup? This action cannot be undone."
@@ -182,7 +174,6 @@ const AdminDashboard = () => {
       const data = await response.json();
       if (data.success) {
         showToast(data.message || "System cleanup completed successfully!", "success");
-        // Optionally refetch some data if cleanup affects metrics
         fetchDashboardData();
       } else {
         showToast(data.message || "System cleanup failed.", "error");
@@ -195,71 +186,77 @@ const AdminDashboard = () => {
     }
   };
 
-  // Helper function to get role-specific color class
   const getRoleColorClass = (role) => {
     switch (role) {
       case 'buyer': return 'text-blue-500 dark:text-blue-400';
       case 'seller': return 'text-green-500 dark:text-green-400';
-      case 'admin': return 'text-purple-700 dark:text-purple-400'; // Darker purple for light mode, lighter for dark mode
+      case 'admin': return 'text-purple-700 dark:text-purple-400';
       default: return 'text-gray-700 dark:text-gray-300';
     }
   };
 
-  // Calculate total orders from platformStats
   const totalOrders = (analyticsData.businessMetrics.platformStats.total_completed_orders || 0) +
       (analyticsData.businessMetrics.platformStats.pending_orders || 0) +
       (analyticsData.businessMetrics.platformStats.in_progress_orders || 0);
 
+  const totalRevenue = parseFloat(analyticsData.businessMetrics.platformStats.total_platform_revenue) || 0;
+  const averageOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : 0;
 
-  // Chart Data preparation
-  const revenueChartData = {
-    labels: analyticsData.revenue.map((item) => item.period),
+
+  // Removed revenueChartData and revenueChartOptions
+
+  // New chart data for Recent Registrations
+  const recentRegistrationsChartData = {
+    labels: analyticsData.activeUsers.recentRegistrations
+        .filter(item => item.role !== 'admin') // Filter out admin registrations
+        .map(item => new Date(item.date).toLocaleDateString()),
     datasets: [
       {
-        label: "Revenue",
-        data: analyticsData.revenue.map((item) => item.revenue),
-        fill: true,
-        backgroundColor: "rgba(139, 92, 246, 0.2)", // purple-500 with opacity
-        borderColor: "#8B5CF6", // purple-500
-        tension: 0.3,
+        label: 'Buyer',
+        data: analyticsData.activeUsers.recentRegistrations
+            .filter(item => item.role === 'buyer')
+            .map(item => item.registrations),
+        backgroundColor: "#6366F1", // indigo-500
       },
       {
-        label: "Order Count",
-        data: analyticsData.revenue.map((item) => item.order_count),
-        fill: false,
-        borderColor: "#EC4899", // fuchsia-500
-        tension: 0.3,
-      },
-    ],
+        label: 'Seller',
+        data: analyticsData.activeUsers.recentRegistrations
+            .filter(item => item.role === 'seller')
+            .map(item => item.registrations),
+        backgroundColor: "#34D399", // emerald-400
+      }
+    ]
   };
 
-  const revenueChartOptions = {
+  const recentRegistrationsChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: "top",
+        position: 'top',
         labels: {
-          color: localStorage.getItem("theme") === "dark" ? "#E5E7EB" : "#374151", // text-gray-200 / text-gray-700
+          color: localStorage.getItem("theme") === "dark" ? "#E5E7EB" : "#374151",
         },
       },
       title: {
         display: true,
-        text: `Revenue & Orders (${revenuePeriod.charAt(0).toUpperCase() + revenuePeriod.slice(1)})`,
-        color: localStorage.getItem("theme") === "dark" ? "#F9FAFB" : "#6B21A8", // Changed to purple-800 for better contrast in light mode
+        text: 'Recent Registrations (Last 30 Days)',
+        color: localStorage.getItem("theme") === "dark" ? "#F9FAFB" : "#6B21A8",
       },
     },
     scales: {
       x: {
+        stacked: true,
         ticks: {
-          color: localStorage.getItem("theme") === "dark" ? "#D1D5DB" : "#4B5563", // text-gray-300 / text-gray-600
+          color: localStorage.getItem("theme") === "dark" ? "#D1D5DB" : "#4B5563",
         },
         grid: {
-          color: localStorage.getItem("theme") === "dark" ? "rgba(107, 114, 128, 0.3)" : "rgba(209, 213, 219, 0.5)", // gray-500/30 / gray-300/50
+          color: localStorage.getItem("theme") === "dark" ? "rgba(107, 114, 128, 0.3)" : "rgba(209, 213, 219, 0.5)",
           borderColor: localStorage.getItem("theme") === "dark" ? "#6B7280" : "#D1D5DB",
         },
       },
       y: {
+        stacked: true,
         ticks: {
           color: localStorage.getItem("theme") === "dark" ? "#D1D5DB" : "#4B5563",
         },
@@ -271,20 +268,19 @@ const AdminDashboard = () => {
     },
   };
 
+
   const topCategoriesChartData = {
-    // Corrected labels to use 'name' from API response
     labels: analyticsData.businessMetrics.topCategories.map((item) => item.name),
     datasets: [
       {
-        // Corrected data to use 'total_orders' from API response, representing products sold
         label: "Products Sold",
         data: analyticsData.businessMetrics.topCategories.map((item) => item.total_orders),
         backgroundColor: [
-          "#8B5CF6", // purple-500
-          "#EC4899", // fuchsia-500
-          "#6366F1", // indigo-500
-          "#06B6D4", // cyan-500
-          "#F59E0B", // amber-500
+          "#8B5CF6",
+          "#EC4899",
+          "#6366F1",
+          "#06B6D4",
+          "#F59E0B",
         ],
         borderColor: localStorage.getItem("theme") === "dark" ? "#1F2937" : "#FFFFFF",
         borderWidth: 1,
@@ -305,24 +301,23 @@ const AdminDashboard = () => {
       title: {
         display: true,
         text: "Top 5 Categories by Products Sold",
-        color: localStorage.getItem("theme") === "dark" ? "#F9FAFB" : "#6B21A8", // Changed to purple-800 for better contrast in light mode
+        color: localStorage.getItem("theme") === "dark" ? "#F9FAFB" : "#6B21A8",
       },
     },
   };
 
   const topSellersChartData = {
-    // Corrected labels to use 'name' from API response
     labels: analyticsData.businessMetrics.topSellers.map((item) => item.name),
     datasets: [
       {
         label: "Revenue Generated",
         data: analyticsData.businessMetrics.topSellers.map((item) => item.total_revenue),
         backgroundColor: [
-          "#A78BFA", // purple-400
-          "#F472B6", // pink-400
-          "#818CF8", // indigo-400
-          "#22D3EE", // cyan-400
-          "#FBBF24", // amber-400
+          "#A78BFA",
+          "#F472B6",
+          "#818CF8",
+          "#22D3EE",
+          "#FBBF24",
         ],
         borderColor: localStorage.getItem("theme") === "dark" ? "#1F2937" : "#FFFFFF",
         borderWidth: 1,
@@ -343,7 +338,7 @@ const AdminDashboard = () => {
       title: {
         display: true,
         text: "Top 5 Sellers by Revenue",
-        color: localStorage.getItem("theme") === "dark" ? "#F9FAFB" : "#6B21A8", // Changed to purple-800 for better contrast in light mode
+        color: localStorage.getItem("theme") === "dark" ? "#F9FAFB" : "#6B21A8",
       },
     },
     scales: {
@@ -370,7 +365,7 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-        <AdminLayout> {/* Wrap loading state with AdminLayout */}
+        <AdminLayout>
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 to-purple-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
             <div className="flex flex-col items-center text-gray-700 dark:text-gray-300">
               <svg
@@ -401,10 +396,8 @@ const AdminDashboard = () => {
   }
 
   return (
-      <AdminLayout> {/* Wrap the entire dashboard content with AdminLayout */}
-        {/* Main content area */}
+      <AdminLayout>
         <>
-          {/* Key Metrics Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex items-center space-x-4 animate-fade-in-up">
               <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-700 text-indigo-600 dark:text-indigo-200">
@@ -413,7 +406,6 @@ const AdminDashboard = () => {
               <div>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Active Users (Last 7 Days)</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {/* Using activeUsersCount from the API for users logged in recently */}
                   {analyticsData.activeUsers.activeUsersCount || 0}
                 </p>
               </div>
@@ -425,8 +417,7 @@ const AdminDashboard = () => {
               <div>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Total Revenue (All Time)</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {/* Corrected to use total_platform_revenue from API */}
-                  ₹{(parseFloat(analyticsData.businessMetrics.platformStats.total_platform_revenue) || 0).toFixed(2)}
+                  ₹{(totalRevenue).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -437,42 +428,33 @@ const AdminDashboard = () => {
               <div>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Total Orders (All Time)</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {/* Summing all order statuses for total orders */}
                   {totalOrders}
                 </p>
               </div>
             </div>
-
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex items-center space-x-4 animate-fade-in-up delay-300">
+              <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-700 text-yellow-600 dark:text-yellow-200">
+                <Tag className="w-7 h-7" />
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Average Order Value</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  ₹{averageOrderValue}
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Analytics Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Revenue Chart */}
+            {/* New Recent Registrations Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 animate-scale-in">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-purple-800 dark:text-purple-200">Revenue Overview</h3>
-                <div className="flex space-x-2">
-                  <select
-                      value={revenuePeriod}
-                      onChange={(e) => setRevenuePeriod(e.target.value)}
-                      className="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1.5 px-3 text-gray-800 dark:text-white text-sm focus:ring-purple-500 focus:border-purple-500"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                  <input
-                      type="number"
-                      value={revenueYear}
-                      onChange={(e) => setRevenueYear(e.target.value)}
-                      min="2020"
-                      max={new Date().getFullYear()}
-                      className="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1.5 px-3 text-gray-800 dark:text-white text-sm focus:ring-purple-500 focus:border-purple-500 w-24"
-                  />
-                </div>
-              </div>
+              <h3 className="text-xl font-semibold text-purple-800 dark:text-purple-200 mb-4">Recent Registrations</h3>
               <div className="h-80">
-                <Line data={revenueChartData} options={revenueChartOptions} />
+                {analyticsData.activeUsers.recentRegistrations.length > 0 ? (
+                    <Bar data={recentRegistrationsChartData} options={recentRegistrationsChartOptions} />
+                ) : (
+                    <p className="text-gray-500 dark:text-gray-400">No recent registrations data available.</p>
+                )}
               </div>
             </div>
 
@@ -483,7 +465,6 @@ const AdminDashboard = () => {
                 <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                   <p className="text-gray-500 dark:text-gray-400 text-sm">Total Registered Users</p>
                   <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {/* Summing all user roles for total registered users */}
                     {(analyticsData.activeUsers.userStats.total_buyers || 0) +
                         (analyticsData.activeUsers.userStats.total_sellers || 0) +
                         (analyticsData.activeUsers.userStats.total_admins || 0)}
@@ -492,7 +473,6 @@ const AdminDashboard = () => {
                 <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                   <p className="text-gray-500 dark:text-gray-400 text-sm">Active (Non-Suspended) Users</p>
                   <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {/* Using active_users from userStats, which represents active and non-suspended users */}
                     {analyticsData.activeUsers.userStats.active_users || 0}
                   </p>
                 </div>
@@ -501,7 +481,9 @@ const AdminDashboard = () => {
                 <h4 className="text-lg font-medium text-purple-700 dark:text-purple-300 mb-3">Recent Registrations (Last 30 Days)</h4>
                 {analyticsData.activeUsers.recentRegistrations.length > 0 ? (
                     <ul className="divide-y divide-gray-200 dark:divide-gray-700 max-h-40 overflow-y-auto custom-scrollbar">
-                      {analyticsData.activeUsers.recentRegistrations.map((registration, index) => (
+                      {analyticsData.activeUsers.recentRegistrations
+                          .filter(registration => registration.role !== 'admin') // Filter out admin registrations from this list too
+                          .map((registration, index) => (
                           <li key={index} className="py-2 flex items-center justify-between">
                           <span className={`text-sm ${getRoleColorClass(registration.role)}`}>
                               {registration.role} ({registration.registrations})
@@ -519,9 +501,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Additional Business Metrics Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Top Categories Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 animate-scale-in delay-200">
               <h3 className="text-xl font-semibold text-purple-800 dark:text-purple-200 mb-4">Top Categories</h3>
               <div className="h-80 flex items-center justify-center">
@@ -533,7 +513,6 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Top Sellers Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 animate-scale-in delay-300">
               <h3 className="text-xl font-semibold text-purple-800 dark:text-purple-200 mb-4">Top Sellers</h3>
               <div className="h-80">
@@ -546,7 +525,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* System Actions Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 animate-fade-in-up">
             <h3 className="text-xl font-semibold text-purple-800 dark:text-purple-200 mb-4">System Actions</h3>
             <div className="flex flex-wrap gap-4">
@@ -558,7 +536,6 @@ const AdminDashboard = () => {
                 <Trash2 className="w-5 h-5" />
                 <span>{loading ? "Cleaning Up..." : "Run System Cleanup"}</span>
               </button>
-              {/* Add more system actions here as needed */}
             </div>
           </div>
         </>

@@ -181,13 +181,7 @@ const BuyerDashboardNavbar = ({ buyerUser, cartItemCount, theme, toggleTheme }) 
                                         My Profile
                                     </button>
                                     <button
-                                        onClick={() => handleNavigation('/settings')}
-                                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left"
-                                    >
-                                        Settings
-                                    </button>
-                                    <button
-                                        onClick={() => handleNavigation('/buyer/login')} // Assuming /login is your login route for logout
+                                        onClick={() => handleNavigation('/')} // Assuming /login is your login route for logout
                                         className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 w-full text-left"
                                     >
                                         Logout

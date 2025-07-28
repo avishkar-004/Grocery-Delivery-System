@@ -5,6 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default marker icon in Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -12,6 +23,7 @@ const ProfilePage = () => {
   const [editMode, setEditMode] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [passwordData, setPasswordData] = useState({
     current_password: '',
@@ -92,33 +104,8 @@ const ProfilePage = () => {
 
       if (formData.address && formData.address.trim()) updateData.address = formData.address.trim();
 
-      if (formData.latitude !== undefined && formData.latitude !== null && formData.latitude !== '') {
-        const parsedLat = parseFloat(formData.latitude);
-        if (!isNaN(parsedLat)) {
-          updateData.latitude = parsedLat;
-        } else {
-          setAlertMessage("Latitude must be a valid number.");
-          setAlertType('destructive');
-          setTimeout(() => setAlertMessage(null), 5000);
-          return;
-        }
-      } else {
-        updateData.latitude = null;
-      }
-
-      if (formData.longitude !== undefined && formData.longitude !== null && formData.longitude !== '') {
-        const parsedLon = parseFloat(formData.longitude);
-        if (!isNaN(parsedLon)) {
-          updateData.longitude = parsedLon;
-        } else {
-          setAlertMessage("Longitude must be a valid number.");
-          setAlertType('destructive');
-          setTimeout(() => setAlertMessage(null), 5000);
-          return;
-        }
-      } else {
-        updateData.longitude = null;
-      }
+      updateData.latitude = formData.latitude || null;
+      updateData.longitude = formData.longitude || null;
 
       await apiCall('/profile/update', {
         method: 'PUT',
@@ -237,56 +224,59 @@ const ProfilePage = () => {
   };
 
   // --- Geolocation and Reverse Geocoding Functionality ---
+  const handleLocationUpdate = async (latitude, longitude, source) => {
+    setAlertMessage(null);
+    setAlertType('');
+
+    setFormData(prevData => ({
+      ...prevData,
+      latitude: latitude,
+      longitude: longitude
+    }));
+
+    setAlertMessage(source === 'geo' ? "Fetching address..." : "Fetching address for selected location...");
+    setAlertType('success');
+
+    try {
+      const nominatimApiUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
+      const geoResponse = await fetch(nominatimApiUrl, {
+        headers: {
+          'User-Agent': 'YourAppName/1.0 (your-email@example.com)'
+        }
+      });
+
+      if (!geoResponse.ok) {
+        throw new Error(`HTTP error! status: ${geoResponse.status}`);
+      }
+
+      const geoData = await geoResponse.json();
+
+      if (geoData.display_name) {
+        setFormData(prevData => ({ ...prevData, address: geoData.display_name }));
+        setAlertMessage("Location and address fetched successfully!");
+        setAlertType('success');
+      } else {
+        setAlertMessage("Location fetched, but address could not be found. Please enter manually.");
+        setAlertType('destructive');
+      }
+    } catch (geoError) {
+      console.error("Reverse geocoding failed:", geoError);
+      setAlertMessage("Failed to get address from coordinates. Please enter manually.");
+      setAlertType('destructive');
+    } finally {
+      setTimeout(() => setAlertMessage(null), 5000);
+    }
+  };
+
   const getCurrentLocation = () => {
-    setAlertMessage(null); // Clear any previous alerts
+    setAlertMessage(null);
     setAlertType('');
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           const { latitude, longitude } = position.coords;
-
-          // Update latitude and longitude in formData immediately
-          setFormData(prevData => ({
-            ...prevData,
-            latitude: latitude,
-            longitude: longitude
-          }));
-
-          setAlertMessage("Fetching address...");
-          setAlertType('success');
-
-          try {
-            // Nominatim API for reverse geocoding
-            // Usage Policy: https://operations.osmfoundation.org/policies/nominatim/
-            const nominatimApiUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
-            const geoResponse = await fetch(nominatimApiUrl, {
-              headers: {
-                'User-Agent': 'YourAppName/1.0 (your-email@example.com)' // Required by Nominatim policy
-              }
-            });
-
-            if (!geoResponse.ok) {
-              throw new Error(`HTTP error! status: ${geoResponse.status}`);
-            }
-
-            const geoData = await geoResponse.json();
-
-            if (geoData.display_name) {
-              setFormData(prevData => ({ ...prevData, address: geoData.display_name }));
-              setAlertMessage("Location and address fetched successfully!");
-              setAlertType('success');
-            } else {
-              setAlertMessage("Location fetched, but address could not be found. Please enter manually.");
-              setAlertType('destructive');
-            }
-          } catch (geoError) {
-            console.error("Reverse geocoding failed:", geoError);
-            setAlertMessage("Failed to get address from coordinates. Please enter manually.");
-            setAlertType('destructive');
-          } finally {
-            setTimeout(() => setAlertMessage(null), 5000); // Clear message after 5 seconds
-          }
+          handleLocationUpdate(latitude, longitude, 'geo');
         },
         (error) => {
           let errorMessage = "Failed to fetch location.";
@@ -316,6 +306,20 @@ const ProfilePage = () => {
       setTimeout(() => setAlertMessage(null), 5000);
     }
   };
+
+  const handleMapClick = (latlng) => {
+    handleLocationUpdate(latlng.lat, latlng.lng, 'map');
+    setShowMapModal(false);
+  };
+
+  const LocationMarker = ({ onMapClick }) => {
+    useMapEvents({
+      click(e) {
+        onMapClick(e.latlng);
+      },
+    });
+    return null;
+  };
   // --- End Geolocation and Reverse Geocoding Functionality ---
 
 
@@ -336,9 +340,8 @@ const ProfilePage = () => {
             <CardTitle className="flex items-center justify-between">
               My Profile
               <div className="flex gap-3">
-
                 <Button
-                    onClick={() => navigate("/admin/dashboard")}
+                    onClick={() => { /* navigate("/admin/dashboard") */ }}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Lock size={16} />
@@ -488,53 +491,41 @@ const ProfilePage = () => {
                     </div>
                   </div>
 
-                  {/* Address, Latitude, Longitude - only for seller */}
+                  {/* Address with map functionality - only for seller */}
                   {user?.role === 'seller' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Address</label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                          <Textarea
-                            value={formData.address || ''}
-                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            disabled={!editMode}
-                            rows={3}
-                            className="pl-10"
-                          />
-                        </div>
-                        {editMode && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Address</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <Textarea
+                          value={formData.address || ''}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          disabled={!editMode}
+                          rows={3}
+                          className="pl-10"
+                        />
+                      </div>
+                      {editMode && (
+                        <div className="flex gap-2 mt-2">
                           <Button
                             type="button"
                             onClick={getCurrentLocation}
-                            className="mt-2 flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-2"
+                            className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-2"
                           >
                             <LocateFixed size={16} />
                             Get Current Location
                           </Button>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Latitude</label>
-                        <Input
-                          type="number"
-                          step="any"
-                          value={formData.latitude === null ? '' : formData.latitude}
-                          onChange={(e) => setFormData({ ...formData, latitude: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                          disabled={!editMode}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Longitude</label>
-                        <Input
-                          type="number"
-                          step="any"
-                          value={formData.longitude === null ? '' : formData.longitude}
-                          onChange={(e) => setFormData({ ...formData, longitude: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                          disabled={!editMode}
-                        />
-                      </div>
-                    </>
+                          <Button
+                            type="button"
+                            onClick={() => setShowMapModal(true)}
+                            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2"
+                          >
+                            <MapPin size={16} />
+                            Choose on Map
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -711,6 +702,47 @@ const ProfilePage = () => {
                   </Button>
                 </div>
               </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Map Selection Modal */}
+        {showMapModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-4xl mx-auto h-[80vh] flex flex-col">
+              <CardHeader className="flex-shrink-0">
+                <CardTitle className="flex items-center justify-between">
+                  Choose Location on Map
+                  <Button
+                    onClick={() => setShowMapModal(false)}
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                  >
+                    <X size={16} />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow p-0 sm:p-6 pt-0">
+                <div className="h-full w-full rounded-lg overflow-hidden">
+                  <MapContainer
+                    center={[formData.latitude || 20.5937, formData.longitude || 78.9629]}
+                    zoom={formData.latitude ? 13 : 5}
+                    scrollWheelZoom={true}
+                    className="h-full w-full"
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    {formData.latitude && formData.longitude && (
+                      <Marker position={[formData.latitude, formData.longitude]} />
+                    )}
+                    <LocationMarker onMapClick={handleMapClick} />
+                  </MapContainer>
+                </div>
+              </CardContent>
+              <div className="flex-shrink-0 p-6 pt-0 text-center text-sm text-gray-600 dark:text-gray-400">
+                  Click on the map to select a new location.
+              </div>
             </Card>
           </div>
         )}

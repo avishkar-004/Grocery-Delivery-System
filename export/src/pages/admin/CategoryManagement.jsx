@@ -5,8 +5,8 @@ import {
     Edit,
     Trash2,
     Tag, // Category icon
-    X, // Inactive status / close
-    Check // Active status
+    // Removed X, // Inactive status / close
+    // Removed Check // Active status
 } from "lucide-react";
 import ConfirmationModal from "./ConfirmationModal"; // Import the ConfirmationModal
 import CategoryModal from "./CategoryModal"; // Import the CategoryModal
@@ -20,7 +20,7 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
         name: "",
         description: "",
         icon: "",
-        is_active: true,
+        is_active: true, // This state property is still here for modal, but no UI in table.
     });
 
     // Custom confirmation modal states
@@ -48,12 +48,12 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                 setCategories(data || []);
                 console.log("[fetchCategories] Categories set:", data || []);
             } else {
-                showToast(data.message || "Failed to fetch categories.", "error");
+                showToast?.(data.message || "Failed to fetch categories.", "error");
                 console.error("[fetchCategories] API Error:", data.message);
             }
         } catch (error) {
             console.error("[fetchCategories] Network error fetching categories:", error);
-            showToast("Network error. Could not load categories.", "error");
+            showToast?.("Network error. Could not load categories.", "error");
         } finally {
             setLoading(false);
             console.log("[fetchCategories] Loading set to false.");
@@ -116,7 +116,7 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
             console.log("[handleSubmitCategory] API Response:", data);
 
             if (data.success) {
-                showToast(
+                showToast?.(
                     editingCategory ? "Category updated successfully!" : "Category added successfully!",
                     "success"
                 );
@@ -124,18 +124,101 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                 fetchCategories(); // Refresh category list
                 console.log("[handleSubmitCategory] Category saved successfully, refreshing list.");
             } else {
-                showToast(data.message || "Failed to save category.", "error");
+                showToast?.(data.message || "Failed to save category.", "error");
                 console.error("[handleSubmitCategory] API Error:", data.message);
             }
         } catch (error) {
             console.error("[handleSubmitCategory] Network error saving category:", error);
-            showToast("Network error. Could not save category.", "error");
+            showToast?.("Network error. Could not save category.", "error");
         } finally {
             setLoading(false);
             console.log("[handleSubmitCategory] Loading set to false.");
         }
     };
+    const handleSaveCategory = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        const headers = getAuthHeaders();
+        if (!headers) {
+            setLoading(false);
+            return;
+        }
 
+        const apiMethod = editingCategory ? "PUT" : "POST";
+        const apiUrl = editingCategory
+            ? `http://localhost:3000/api/admin/categories/${editingCategory.id}`
+            : `http://localhost:3000/api/admin/categories/new`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: apiMethod,
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(categoryFormData),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showToast?.(
+                    `Category ${editingCategory ? "updated" : "added"} successfully.`,
+                    "success"
+                );
+                setShowCategoryModal(false);
+                setEditingCategory(null);
+                // FIX: Call the fetch function to refresh the data
+                fetchCategories();
+            } else {
+                showToast?.(
+                    data.message || `Failed to ${editingCategory ? "update" : "add"} category.`,
+                    "error"
+                );
+            }
+        } catch (error) {
+            console.error("[handleSaveCategory] Network error:", error);
+            showToast?.("Network error. Could not save category.", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+    const handleDeleteCategory = (categoryId) => {
+        console.log(`[handleDeleteCategory] Deleting category ID: ${categoryId}`);
+        setShowConfirmModal(true);
+        setConfirmModalMessage("Are you sure you want to delete this category? This action cannot be undone.");
+        setConfirmModalAction(() => async () => {
+            setLoading(true);
+            const headers = getAuthHeaders();
+            if (!headers) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/admin/categories/${categoryId}`, {
+                    method: 'DELETE',
+                    headers,
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast?.(`Category deleted successfully.`, "success");
+                    // FIX: Call the fetch function to refresh the data
+                    fetchCategories();
+                } else {
+                    showToast?.(data.message || `Failed to delete category.`, "error");
+                }
+            } catch (error) {
+                console.error("[handleDeleteCategory] Network error:", error);
+                showToast?.("Network error. Could not delete category.", "error");
+            } finally {
+                setLoading(false);
+                setShowConfirmModal(false); // Close the modal
+            }
+        });
+    };
     const handleRemoveCategory = (categoryId) => {
         console.log("[handleRemoveCategory] Initiating remove for category ID:", categoryId);
         setConfirmModalMessage(`Are you sure you want to remove category ID ${categoryId}? This cannot be undone.`);
@@ -154,19 +237,18 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                 );
                 const data = await response.json();
                 console.log("[handleRemoveCategory] API Response:", data);
-
                 if (data.success) {
-                    showToast("Category removed successfully!", "success");
+                    showToast?.("Category removed successfully!", "success");
                     fetchCategories(); // Refresh category list
                     // Note: In a real app, you might also need to re-fetch products if categories are linked
                     console.log("[handleRemoveCategory] Category removed successfully, refreshing list.");
                 } else {
-                    showToast(data.message || "Failed to remove category.", "error");
+                    showToast?.(data.message || "Failed to remove category.", "error");
                     console.error("[handleRemoveCategory] API Error:", data.message);
                 }
             } catch (error) {
                 console.error("[handleRemoveCategory] Network error removing category:", error);
-                showToast("Network error. Could not remove category.", "error");
+                showToast?.("Network error. Could not remove category.", "error");
             } finally {
                 setLoading(false);
                 setShowConfirmModal(false);
@@ -175,7 +257,6 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
         });
         setShowConfirmModal(true);
     };
-
     return (
         <>
             {loading ? (
@@ -231,9 +312,12 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                     Description
                                 </th>
+                                {/* THIS IS THE REMOVED 'ACTIVE' COLUMN HEADER */}
+                                {/*
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                     Active
                                 </th>
+                                */}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                     Actions
                                 </th>
@@ -266,6 +350,8 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                                         <td className="px-6 py-4 max-w-xs truncate text-sm text-gray-700 dark:text-gray-300">
                                             {category.description}
                                         </td>
+                                        {/* THIS IS THE REMOVED 'ACTIVE' COLUMN DATA CELL (the toggle) */}
+                                        {/*
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {category.is_active ? (
                                                 <Check className="w-5 h-5 text-green-500" title="Active" />
@@ -273,6 +359,7 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                                                 <X className="w-5 h-5 text-red-500" title="Inactive" />
                                             )}
                                         </td>
+                                        */}
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex space-x-2">
                                                 <button
@@ -295,7 +382,8 @@ const CategoryManagement = ({ showToast, getAuthHeaders, isDarkMode }) => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                    {/* Updated colspan from 6 to 5 because 'Active' column is removed */}
+                                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                         No categories found.
                                     </td>
                                 </tr>

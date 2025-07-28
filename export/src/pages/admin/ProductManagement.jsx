@@ -93,7 +93,8 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
   // Custom confirmation modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmModalMessage, setConfirmModalMessage] = useState("");
-  const [confirmModalAction, setConfirmModalAction] = useState(null); // Function to execute on confirm
+  const [confirmModalAction, setConfirmModalAction] = useState(null);// Function to execute on confirm
+  const [confirmModalOnCancel, setConfirmModalOnCancel] = useState(null); // Function to execute on cancel of confirm modal
 
   // Define valid unit types
   const UNIT_TYPES = ['weight', 'volume', 'piece'];
@@ -114,7 +115,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
   const getAuthHeaders = () => {
     const adminToken = localStorage.getItem("admin_token");
     if (!adminToken) {
-      showToast("Authentication required. Please log in.", "error");
+      showToast?.("Authentication required. Please log in.", "error"); // Changed
       navigate("/admin/login");
       return null;
     }
@@ -156,12 +157,12 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         setTotalProductsCount(data.data.pagination.total || 0); // Use 'total' from backend response
         setCurrentPage(data.data.pagination.page || 1); // Use 'page' from backend response
       } else {
-        showToast(data.message || "Failed to fetch products.", "error");
+        showToast?.(data.message || "Failed to fetch products.", "error"); // Changed
         console.error("[fetchProducts] API Error:", data.message);
       }
     } catch (error) {
       console.error("[fetchProducts] Network error fetching products:", error);
-      showToast("Network error. Could not load products.", "error");
+      showToast?.("Network error. Could not load products.", "error"); // Changed
     } finally {
       setLoading(false);
     }
@@ -185,24 +186,19 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         setIsCategorySearching(false);
       }
 
-      // Fetch categories. We don't fetch products here anymore to avoid double fetching
-      // when on the products tab, and to allow independent category fetching for the category tab.
       const categoriesResponse = await fetch(categoriesApiUrl, { headers });
       const categoriesData = await categoriesResponse.json();
 
       if (categoriesData.success) {
         const fetchedCategories = categoriesData.data.categories || [];
-        // For categories, we might need product counts, so we'll fetch products separately if needed
-        // or rely on the product_count field if the backend provides it directly for categories/display.
-        // For now, we'll assume product_count is available or calculated.
         setCategories(fetchedCategories);
       } else {
-        showToast("Failed to fetch categories.", "error");
+        showToast?.("Failed to fetch categories.", "error"); // Changed
         console.error("[fetchCategories] API Error - Categories:", categoriesData.message);
       }
     } catch (error) {
       console.error("[fetchCategories] Network error fetching categories:", error);
-      showToast("Network error. Could not load categories.", "error");
+      showToast?.("Network error. Could not load categories.", "error"); // Changed
     } finally {
       setLoading(false);
     }
@@ -228,12 +224,12 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
       if (data.success) {
         setProductStats(data.data);
       } else {
-        showToast(data.message || "Failed to fetch product statistics.", "error");
+        showToast?.(data.message || "Failed to fetch product statistics.", "error"); // Changed
         console.error("[fetchProductStats] API Error:", data.message);
       }
     } catch (error) {
       console.error("[fetchProductStats] Network error fetching product statistics:", error);
-      showToast("Network error. Could not load product statistics.", "error");
+      showToast?.("Network error. Could not load product statistics.", "error"); // Changed
     } finally {
       setLoading(false);
     }
@@ -303,7 +299,73 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
 
 
   // --- Product Management ---
+   const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const headers = getAuthHeaders();
+    if (!headers) {
+      setLoading(false);
+      return;
+    }
+    const apiMethod = editingProduct ? "PUT" : "POST";
+    const apiUrl = editingProduct
+      ? `${API_BASE_URL}/admin/products/${editingProduct.id}`
+      : `${API_BASE_URL}/admin/products/new`;
 
+    // Prepare form data
+    const formData = new FormData();
+    formData.append("name", productFormData.name);
+    formData.append("description", productFormData.description);
+    formData.append("category_id", productFormData.category_id);
+    formData.append("is_active", productFormData.is_active ? "1" : "0");
+    if (productFormData.imageFile) {
+      formData.append("image", productFormData.imageFile);
+    }
+    // Explicitly convert quantity to a string before stringifying the array
+    const quantitiesPayload = productFormData.quantities
+      .filter(q => q.quantity && q.unit_type)
+      .map(q => ({
+        id: q.id,
+        quantity: String(q.quantity).trim(), // Forces quantity to be a string
+        unit_type: q.unit_type.trim(),
+      }));
+
+    formData.append("quantities", JSON.stringify(quantitiesPayload));
+
+    try {
+      // The headers are different for FormData
+      const response = await fetch(apiUrl, {
+        method: apiMethod,
+        headers: {
+          'Authorization': headers.Authorization,
+          // 'Content-Type': 'multipart/form-data' is not needed as fetch sets it automatically
+        },
+        body: formData,
+      });
+      const data = await response.json();
+      console.log("[handleSaveProduct] API Response:", data);
+
+      if (data.success) {
+        showToast?.( // Changed
+          `Product ${editingProduct ? "updated" : "added"} successfully.`,
+          "success"
+        );
+        setShowProductModal(false);
+        // FIX: Call the fetch function to refresh the data
+        fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
+      } else {
+        showToast?.( // Changed
+          data.message || `Failed to ${editingProduct ? "update" : "add"} product.`,
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error("[handleSaveProduct] Network error:", error);
+      showToast?.("Network error. Could not save product.", "error"); // Changed
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleAddProduct = () => {
     setEditingProduct(null);
     setProductFormData({
@@ -344,11 +406,11 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
     }));
   };
 
-  const handleQuantityChange = (index, field, value) => {
-    const newQuantities = [...productFormData.quantities];
-    newQuantities[index] = { ...newQuantities[index], [field]: value };
-    setProductFormData((prev) => ({ ...prev, quantities: newQuantities }));
-  };
+ const handleQuantityChange = (index, field, value) => {
+  const newQuantities = [...productFormData.quantities];
+  newQuantities[index] = { ...newQuantities[index], [field]: value };
+  setProductFormData((prev) => ({ ...prev, quantities: newQuantities }));
+};
 
   const addQuantityField = () => {
     setProductFormData((prev) => ({
@@ -362,19 +424,20 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
     setProductFormData((prev) => ({ ...prev, quantities: newQuantities }));
   };
 
+  // This is the updated handleSubmitProduct function
   const handleSubmitProduct = async (e) => {
     e.preventDefault();
 
     // Step 1: Prepare quantities from form data.
-    // Convert string quantity from input to float, or null if empty.
-    // Keep only rows where either quantity (after parsing) or unit_type is provided.
+    // Explicitly convert quantity to a string to preserve user input like "10g".
+    // Filter out completely empty rows.
     const currentQuantities = productFormData.quantities
         .map(q => ({
           id: q.id,
-          quantity: q.quantity.trim() !== '' ? q.quantity.trim() : null, // Keep as string, not number
+          quantity: String(q.quantity).trim(), // Force to string here
           unit_type: q.unit_type.trim()
         }))
-        .filter(q => q.quantity !== null || q.unit_type !== '');
+        .filter(q => q.quantity !== '' || q.unit_type.trim() !== '');
 
     let payload = {
       name: productFormData.name,
@@ -384,7 +447,8 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
       is_active: productFormData.is_active,
     };
 
-    const action = async () => {
+
+    const performProductSave = async () => {
       setLoading(true);
       const headers = getAuthHeaders();
       if (!headers) {
@@ -402,19 +466,42 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
           const quantityIdsToDelete = [];
 
           // Identify updates and additions
-          currentQuantities.forEach(newQty => {
+                    currentQuantities.forEach(newQty => {
             if (newQty.id) {
               // Existing quantity, check for changes
               const originalQty = originalQuantities.find(oldQty => oldQty.id === newQty.id);
-              if (originalQty && (originalQty.quantity !== newQty.quantity || originalQty.unit_type !== newQty.unit_type)) {
-                quantitiesToUpdate.push(newQty);
+
+              if (originalQty) {
+                // Ensure both quantities are trimmed strings for a reliable comparison
+                const originalQuantityStr = String(originalQty.quantity).trim();
+                const newQuantityStr = String(newQty.quantity).trim(); // Ensure newQty.quantity is also trimmed
+
+                // Log values for debugging in browser console
+                console.log(`--- Comparing Quantity (ID: ${newQty.id}) ---`);
+                console.log(`Original Quantity: '${originalQuantityStr}' (Type: ${typeof originalQuantityStr})`);
+                console.log(`New Quantity:      '${newQuantityStr}' (Type: ${typeof newQuantityStr})`);
+                console.log(`Original Unit Type: '${originalQty.unit_type}'`);
+                console.log(`New Unit Type:      '${newQty.unit_type}'`);
+                console.log(`Quantities Different? ${originalQuantityStr !== newQuantityStr}`);
+                console.log(`Unit Types Different? ${originalQty.unit_type !== newQty.unit_type}`);
+                console.log(`Should Update? ${originalQuantityStr !== newQuantityStr || originalQty.unit_type !== newQty.unit_type}`);
+
+                // Check if either quantity or unit_type has changed
+                if (originalQuantityStr !== newQuantityStr || originalQty.unit_type !== newQty.unit_type) {
+                  quantitiesToUpdate.push(newQty);
+                }
+              } else {
+                // This case would mean a new quantity has an ID, which shouldn't happen if IDs are only from existing items.
+                // Could indicate an issue with ID generation/assignment.
+                console.warn(`Quantity with ID ${newQty.id} not found in original quantities.`);
               }
-            } else if (newQty.quantity !== null && newQty.unit_type.trim() !== '') {
-              // This condition ensures that only new quantities with both a valid number
+            } else if (newQty.quantity !== null && String(newQty.quantity).trim() !== '' && newQty.unit_type.trim() !== '') {
+              // This condition ensures that only new quantities with both a valid string
               // and a unit type are considered for addition.
               quantitiesToAdd.push(newQty);
             }
           });
+
 
           // Identify deletions
           originalQuantities.forEach(oldQty => {
@@ -440,8 +527,8 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
           );
         } else {
           // Step 2 (for NEW products): Apply stricter filter for final payload
-          // Ensure both quantity (as a number) and unit_type are present for new entries
-          payload.quantities = currentQuantities.filter(q => q.quantity !== null && q.unit_type.trim() !== '');
+          // Ensure both quantity (as a string) and unit_type are present for new entries
+          payload.quantities = currentQuantities.filter(q => q.quantity !== '' && q.unit_type.trim() !== '');
 
           const url = `${API_BASE_URL}/admin/products/add`;
           console.log("[handleSubmitProduct] Adding product payload:", payload);
@@ -454,31 +541,33 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         const data = await response.json();
 
         if (data.success) {
-          showToast(editingProduct ? "Product updated successfully!" : "Product added successfully!", "success");
-          setShowProductModal(false);
+          showToast?.(editingProduct ? "Product updated successfully!" : "Product added successfully!", "success");
           // Refresh products list, maintaining current page and filters
-          fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
-          fetchProductStats(); // Refresh stats after product change
+          await fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
+          await fetchProductStats(); // Refresh stats after product change
+          // FIX: Close modal after all data has been fetched and states updated
+          setShowProductModal(false);
         } else {
-          showToast(data.message || "Failed to save product.", "error");
+          showToast?.(data.message || "Failed to save product.", "error");
         }
       } catch (error) {
         console.error("[handleSubmitProduct] Network error saving product:", error);
-        showToast("Network error. Could not save product.", "error");
+        showToast?.("Network error. Could not save product.", "error");
       } finally {
         setLoading(false);
-        setShowConfirmModal(false); // Close modal here after action completes
+        setShowConfirmModal(false); // Ensure confirmation modal closes
       }
     };
 
     // If editing product, show confirmation for complex updates (quantities, status changes implied)
+    // For new product, no confirmation needed unless specific logic dictates
     if (editingProduct) {
       setConfirmModalMessage("Are you sure you want to save changes to this product?");
-      setConfirmModalAction(() => action); // Pass the action function
+      setConfirmModalAction(() => performProductSave);
+      setConfirmModalOnCancel(() => () => setShowProductModal(true)); // Reopen product modal if user cancels confirmation
       setShowConfirmModal(true);
     } else {
-      // For new product, no confirmation needed unless specific logic dictates
-      action();
+      performProductSave();
     }
   };
 
@@ -498,25 +587,26 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         const data = await response.json();
 
         if (data.success) {
-          showToast("Product removed successfully!", "success");
+          showToast?.("Product removed successfully!", "success"); // Changed
           // Refresh products list, maintaining current page and filters
           fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
           fetchProductStats(); // Refresh stats after product change
         } else {
-          showToast(data.message || "Failed to remove product.", "error");
+          showToast?.(data.message || "Failed to remove product.", "error"); // Changed
         }
       } catch (error) {
         console.error("[handleRemoveProduct] Network error removing product:", error);
-        showToast("Network error. Could not remove product.", "error");
+        showToast?.("Network error. Could not remove product.", "error"); // Changed
       } finally {
         setLoading(false);
-        setShowConfirmModal(false); // Close modal here after action completes
+        setShowConfirmModal(false); // Close confirmation modal here after action completes
       }
     });
+    setConfirmModalOnCancel(() => () => {}); // No action needed on cancel for simple delete
     setShowConfirmModal(true);
   };
 
-  // Handle toggling product status
+  // Handle toggling product status (keeping this logic even if column is hidden for functionality)
   const handleToggleProductStatus = (product) => {
     const newStatus = !product.is_active;
     const actionType = newStatus ? "activate" : "suspend";
@@ -542,22 +632,23 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         const data = await response.json();
 
         if (data.success) {
-          showToast(`Product ${actionType}d successfully!`, "success");
+          showToast?.(`Product ${actionType}d successfully!`, "success"); // Changed
           // Refresh products list, maintaining current page and filters
           fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
           fetchProductStats(); // Refresh stats after product change
         } else {
-          showToast(data.message || `Failed to ${actionType} product.`, "error");
+          showToast?.(data.message || `Failed to ${actionType} product.`, "error"); // Changed
           console.error(`[handleToggleProductStatus] API Error:`, data.message);
         }
       } catch (error) {
         console.error(`[handleToggleProductStatus] Network error ${actionType}ing product:`, error);
-        showToast(`Network error. Could not ${actionType} product.`, "error");
+        showToast?.(`Network error. Could not ${actionType} product.`, "error"); // Changed
       } finally {
         setLoading(false);
-        setShowConfirmModal(false); // Close modal here after action completes
+        setShowConfirmModal(false); // Close confirmation modal here after action completes
       }
     });
+    setConfirmModalOnCancel(() => () => {}); // No action needed on cancel for simple toggle
     setShowConfirmModal(true);
   };
 
@@ -592,7 +683,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
   const handleSubmitCategory = async (e) => {
     e.preventDefault();
 
-    const action = async () => {
+    const performCategorySave = async () => {
       setLoading(true);
       const headers = getAuthHeaders();
       if (!headers) {
@@ -623,30 +714,32 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         const data = await response.json();
 
         if (data.success) {
-          showToast(editingCategory ? "Category updated successfully!" : "Category added successfully!", "success");
-          setShowCategoryModal(false);
-          fetchCategories(debouncedCategorySearchQuery); // Refresh with current search query or all
-          fetchProductStats(); // Refresh stats as category changes might affect product counts
+          showToast?.(editingCategory ? "Category updated successfully!" : "Category added successfully!", "success"); // Changed
+          await fetchCategories(debouncedCategorySearchQuery); // Refresh with current search query or all
+          await fetchProductStats(); // Refresh stats as category changes might affect product counts
           // Also refresh products, as their categories might have changed
-          fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
+          await fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
+          // FIX: Close modal after all data has been fetched and states updated
+          setShowCategoryModal(false);
         } else {
-          showToast(data.message || "Failed to save category.", "error");
+          showToast?.(data.message || "Failed to save category.", "error"); // Changed
         }
       } catch (error) {
         console.error("[handleSubmitCategory] Network error saving category:", error);
-        showToast("Network error. Could not save category.", "error");
+        showToast?.("Network error. Could not save category.", "error"); // Changed
       } finally {
         setLoading(false);
-        setShowConfirmModal(false); // Close modal here
+        setShowConfirmModal(false); // Ensure confirmation modal closes
       }
     };
 
     if (editingCategory) {
       setConfirmModalMessage("Are you sure you want to save changes to this category?");
-      setConfirmModalAction(() => action);
+      setConfirmModalAction(() => performCategorySave);
+      setConfirmModalOnCancel(() => () => setShowCategoryModal(true)); // Reopen category modal if user cancels confirmation
       setShowConfirmModal(true);
     } else {
-      action();
+      performCategorySave();
     }
   };
 
@@ -666,26 +759,27 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         const data = await response.json();
 
         if (data.success) {
-          showToast("Category removed successfully!", "success");
+          showToast?.("Category removed successfully!", "success"); // Changed
           fetchCategories(debouncedCategorySearchQuery); // Refresh with current search query or all
           // Also refresh products, as their categories might be gone
           fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
           fetchProductStats(); // Refresh stats after category change
         } else {
-          showToast(data.message || "Failed to remove category.", "error");
+          showToast?.(data.message || "Failed to remove category.", "error"); // Changed
         }
       } catch (error) {
         console.error("[handleRemoveCategory] Network error removing category:", error);
-        showToast("Network error. Could not remove category.", "error");
+        showToast?.("Network error. Could not remove category.", "error"); // Changed
       } finally {
         setLoading(false);
-        setShowConfirmModal(false); // Close modal here
+        setShowConfirmModal(false); // Close confirmation modal here
       }
     });
+    setConfirmModalOnCancel(() => () => {}); // No action needed on cancel for simple delete
     setShowConfirmModal(true);
   };
 
-  // Function to handle toggling category status
+  // Function to handle toggling category status (keeping this logic even if column is hidden for functionality)
   const handleToggleCategoryStatus = (category) => {
     const newStatus = !category.is_active;
     const actionType = newStatus ? "activate" : "suspend";
@@ -713,22 +807,23 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
         const data = await response.json();
 
         if (data.success) {
-          showToast(`Category ${actionType}d successfully!`, "success");
+          showToast?.(`Category ${actionType}d successfully!`, "success"); // Changed
           fetchCategories(debouncedCategorySearchQuery); // Refresh categories
           fetchProductStats(); // Refresh stats as category changes might affect product counts
           // Also refresh products, as their categories might be gone or updated
           fetchProducts(currentPage, productsPerPage, productSearchQuery, selectedCategoryFilterId, productFilterStatus);
         } else {
-          showToast(data.message || `Failed to ${actionType} category.`, "error");
+          showToast?.(data.message || `Failed to ${actionType} category.`, "error"); // Changed
         }
       } catch (error) {
         console.error(`[handleToggleCategoryStatus] Network error ${actionType}ing category:`, error);
-        showToast(`Network error. Could not ${actionType} category.`, "error");
+        showToast?.(`Network error. Could not ${actionType} category.`, "error"); // Changed
       } finally {
         setLoading(false);
-        setShowConfirmModal(false); // Close modal here
+        setShowConfirmModal(false); // Close confirmation modal here
       }
     });
+    setConfirmModalOnCancel(() => () => {}); // No action needed on cancel for simple toggle
     setShowConfirmModal(true);
   };
 
@@ -765,9 +860,6 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
   }, [categories, categoryFilterStatus, categorySortOrder]);
 
 
-  // --- Other Handlers ---
-
-
   // --- JSX Rendering ---
   // Custom Confirmation Modal Component
   const ConfirmationModal = ({ message, onConfirm, onCancel }) => (
@@ -792,7 +884,19 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
       <AdminLayout isDarkMode={isDarkMode} showToast={showToast} handleLogout={handleLogout}>
 
         {showConfirmModal && (
-            <ConfirmationModal message={confirmModalMessage} onConfirm={confirmModalAction} onCancel={() => setShowConfirmModal(false)} />
+            <ConfirmationModal
+                message={confirmModalMessage}
+                onConfirm={() => {
+                  confirmModalAction(); // Execute the action
+                  setShowConfirmModal(false); // Close confirmation modal
+                }}
+                onCancel={() => {
+                  setShowConfirmModal(false); // Close confirmation modal
+                  if (confirmModalOnCancel) {
+                    confirmModalOnCancel(); // Execute the specific cancel action if defined
+                  }
+                }}
+            />
         )}
 
         {/* Secondary Navigation for Products and Categories */}
@@ -938,7 +1042,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Category</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantities</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Active</th>
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Active</th> REMOVED ACTIVE COLUMN */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                   </tr>
                   </thead>
@@ -962,18 +1066,24 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                               {categories.find(cat => cat.id === product.category_id)?.name || "N/A"}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                              {product.quantities && product.quantities.length > 0 ? (
-                                  <ul className="list-disc list-inside">
-                                    {/* Only display quantity, removed unit_type */}
-                                    {product.quantities.map((q, index) => (
-                                        <li key={index}>{q.quantity} {q.unit_type}</li>
-                                    ))}
-                                  </ul>
-                              ) : (
-                                  <span>N/A</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+  {product.quantities && product.quantities.length > 0 ? (
+    <ul className="list-disc list-inside">
+      {product.quantities.map((q, qIndex) => {
+        // This is the new, simplified rendering logic.
+        // It always displays the quantity and then appends the unit type if it's available.
+        const unitToDisplay = q.unit_type && q.unit_type !== 'none' ? ` ${q.unit_type}` : '';
+        return (
+          <li key={qIndex}>
+            {q.quantity}{unitToDisplay}
+          </li>
+        );
+      })}
+    </ul>
+  ) : (
+    "N/A"
+  )}
+</td>
+                            {/* <td className="px-6 py-4 whitespace-nowrap">
                               <button
                                   onClick={() => handleToggleProductStatus(product)}
                                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -987,7 +1097,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                                       } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                                   />
                               </button>
-                            </td>
+                            </td> REMOVED ACTIVE TOGGLE */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center space-x-3">
                                 <button onClick={() => handleEditProduct(product)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200 hover:scale-110 active:scale-95" title="Edit Product">
@@ -996,13 +1106,21 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                                 <button onClick={() => handleRemoveProduct(product.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-200 hover:scale-110 active:scale-95" title="Remove Product">
                                   <Trash2 className="w-5 h-5" />
                                 </button>
+                                {/* Added Toggle Button for Product Status */}
+                                <button
+                                    onClick={() => handleToggleProductStatus(product)}
+                                    className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 transition-all duration-200 hover:scale-110 active:scale-95"
+                                    title={product.is_active ? "Mark as Inactive" : "Mark as Active"}
+                                >
+                                  {product.is_active ? <ToggleRight className="w-6 h-6 text-green-500" /> : <ToggleLeft className="w-6 h-6 text-red-500" />}
+                                </button>
                               </div>
                             </td>
                           </tr>
                       ))
                   ) : (
                       <tr>
-                        <td colSpan="8" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td colSpan="7" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
                           {loading ? "Loading products..." : "No products found."}
                         </td>
                       </tr>
@@ -1196,7 +1314,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Products Count</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Active</th>
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Active</th> REMOVED ACTIVE COLUMN */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                   </tr>
                   </thead>
@@ -1225,7 +1343,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                               {category.product_count || 0}
                             </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            {/* <td className="px-6 py-4 whitespace-nowrap">
                               <button
                                   onClick={() => handleToggleCategoryStatus(category)}
                                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -1239,7 +1357,7 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                                     } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                                 />
                               </button>
-                            </td>
+                            </td> REMOVED ACTIVE TOGGLE */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center space-x-3">
                                 <button onClick={() => handleEditCategory(category)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200 hover:scale-110 active:scale-95" title="Edit Category">
@@ -1248,13 +1366,21 @@ const ProductManagement = ({ isDarkMode, showToast, handleLogout }) => {
                                 <button onClick={() => handleRemoveCategory(category.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-200 hover:scale-110 active:scale-95" title="Remove Category">
                                   <Trash2 className="w-5 h-5" />
                                 </button>
+                                {/* Added Toggle Button for Category Status */}
+                                {/* <button
+                                    onClick={() => handleToggleCategoryStatus(category)}
+                                    className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-300 transition-all duration-200 hover:scale-110 active:scale-95"
+                                    title={category.is_active ? "Mark as Inactive" : "Mark as Active"}
+                                >
+                                  {category.is_active ? <ToggleRight className="w-6 h-6 text-green-500" /> : <ToggleLeft className="w-6 h-6 text-red-500" />}
+                                </button> */}
                               </div>
                             </td>
                           </tr>
                       ))
                   ) : (
                       <tr>
-                        <td colSpan="7" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
                           {loading ? "Loading categories..." : isCategorySearching ? "No matching categories found." : "No categories found."}
                         </td>
                       </tr>

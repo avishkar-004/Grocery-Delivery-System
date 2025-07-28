@@ -30,9 +30,9 @@ import SellerAnalytics from "./pages/seller/SellerAnalytics";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ProductManagement from "./pages/admin/ProductManagement";
 import UserManagement from "./pages/admin/UserManagement";
-import Addprofile from "@/pages/shared/Addprofile.jsx";
+import AddProfile from "./pages/admin/AddProfile";
 import QuotationChat from "./pages/shared/QuotationChat";
-import Profile from "./pages/shared/Profile";
+import BuyerProfile from "@/pages/shared/BuyerProfile.jsx";
 import ProfilePage from "./pages/shared/ProfilePage";
 
 import SellerLayout from './pages/seller/SellerLayout';
@@ -74,7 +74,7 @@ const App = () => (
             <Route path="/buyer/address" element={<Address />} />
             <Route path="/buyer/cart" element={<Cart />} />
             <Route path="/buyer/orders" element={<MyOrders />} />
-            <Route path="/buyer/profile" element={<Profile />} />
+            <Route path="/buyer/profile" element={<BuyerProfile />} />
 
             {/* Seller Routes - Protected */}
             <Route path="/seller/*" element={<PrivateRoute><SellerLayout /></PrivateRoute>}>
@@ -92,7 +92,7 @@ const App = () => (
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<ProductManagement />} />
             <Route path="/admin/users" element={<UserManagement />} />
-            <Route path="/admin/profile" element={<Addprofile />} />
+            <Route path="/admin/profile" element={<AddProfile />} />
 
             {/* Shared Routes */}
             {/* <Route path="/chat" element={<QuotationChat />} /> */}

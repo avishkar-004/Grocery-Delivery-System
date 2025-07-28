@@ -24,7 +24,8 @@ import {
     List,
     Quote,
     Send,
-    Ban // For cancelled status
+    Ban, // For cancelled status
+    Menu
 } from 'lucide-react';
 // Removed Framer Motion imports: import { motion, AnimatePresence } from 'framer-motion';
 
@@ -84,26 +85,39 @@ const ResizableLayout = ({
                              newMessage,
                              setNewMessage,
                              handleSendMessage,
-                             formatDateTime
+                             formatDateTime,
+                             isChatDisabled = false
                          }) => {
-    const [chatWidth, setChatWidth] = useState(33.33); // Initial width percentage
+    const [chatWidth, setChatWidth] = useState(33.33);
     const [isDragging, setIsDragging] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [showMobileQuotation, setShowMobileQuotation] = useState(true); // Mobile toggle
     const containerRef = useRef(null);
 
+    // Check if mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const handleMouseDown = (e) => {
+        if (isMobile) return; // Disable resize on mobile
         setIsDragging(true);
         e.preventDefault();
     };
 
     const handleMouseMove = (e) => {
-        if (!isDragging || !containerRef.current) return;
+        if (!isDragging || !containerRef.current || isMobile) return;
 
         const container = containerRef.current;
         const containerRect = container.getBoundingClientRect();
         const mouseX = e.clientX - containerRect.left;
         const containerWidth = containerRect.width;
 
-        // Calculate new chat width percentage (minimum 20%, maximum 60%)
         const newWidth = Math.min(Math.max((containerWidth - mouseX) / containerWidth * 100, 20), 60);
         setChatWidth(newWidth);
     };
@@ -113,7 +127,7 @@ const ResizableLayout = ({
     };
 
     useEffect(() => {
-        if (isDragging) {
+        if (isDragging && !isMobile) {
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
             return () => {
@@ -121,10 +135,335 @@ const ResizableLayout = ({
                 document.removeEventListener('mouseup', handleMouseUp);
             };
         }
-    }, [isDragging]);
+    }, [isDragging, isMobile]);
 
     const quotationWidth = 100 - chatWidth;
 
+    // Mobile Layout
+    if (isMobile) {
+        return (
+            <div className="flex flex-col h-full">
+                {/* Mobile Toggle Buttons */}
+                <div className="flex mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button
+                        onClick={() => setShowMobileQuotation(true)}
+                        className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                            showMobileQuotation
+                                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400'
+                        }`}
+                    >
+                        <Package size={16} className="inline mr-2" />
+                        Quotation Details
+                    </button>
+                    <button
+                        onClick={() => setShowMobileQuotation(false)}
+                        className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                            !showMobileQuotation
+                                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400'
+                        }`}
+                    >
+                        <MessageSquare size={16} className="inline mr-2" />
+                        Chat
+                    </button>
+                </div>
+
+                {/* Mobile Content */}
+                <div className="flex-grow overflow-hidden">
+                    {showMobileQuotation ? (
+                        // Quotation Details for Mobile
+                        <div className="h-full overflow-y-auto custom-scrollbar">
+                            {loadingQuotationItems ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+                                </div>
+                            ) : quotationItemError ? (
+                                <div className="text-red-500 text-center py-4">{quotationItemError}</div>
+                            ) : quotationItems && Object.keys(quotationItems).length > 0 ? (
+                                <div className="space-y-4">
+                                    {/* Seller Information - Mobile Optimized */}
+                                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                        <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">Seller Information</h4>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <p className="text-gray-700 dark:text-gray-300 mb-1">
+                                                    <strong>Name:</strong> {quotationItems.seller_info?.name || 'N/A'}
+                                                </p>
+                                                <p className="text-gray-700 dark:text-gray-300 mb-1">
+                                                    <strong>Phone:</strong> {quotationItems.seller_info?.phone || 'N/A'}
+                                                </p>
+                                                <p className="text-gray-700 dark:text-gray-300 mb-1">
+                                                    <strong>Email:</strong> {quotationItems.seller_info?.email || 'N/A'}
+                                                </p>
+                                                <p className="text-gray-700 dark:text-gray-300 mb-1">
+                                                    <strong>Address:</strong> {quotationItems.seller_info?.address || 'N/A'}
+                                                </p>
+                                                <p className="text-gray-700 dark:text-gray-300">
+                                                    <strong>Distance:</strong> {quotationItems.delivery_info?.distance_km ? `${quotationItems.delivery_info.distance_km.toFixed(1)} km` : 'N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Quotation Summary - Mobile Optimized */}
+                                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                        <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">Quotation Summary</h4>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-md">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">Total Amount</span>
+                                                <span className="text-lg font-bold text-gray-900 dark:text-white">
+                                                    ₹{parseFloat(quotationItems.quotation_info?.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-md">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">Discount</span>
+                                                <span className="text-lg font-bold text-red-600">
+                                                    ₹{parseFloat(quotationItems.quotation_info?.discount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">Grand Total</span>
+                                                <span className="text-lg font-bold text-green-600">
+                                                    ₹{(quotationItems.quotation_info?.calculated_grand_total || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {quotationItems.quotation_info?.seller_notes && (
+                                            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                                                <p className="text-sm text-gray-800 dark:text-gray-200">
+                                                    <strong>Seller Notes:</strong> {quotationItems.quotation_info.seller_notes}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Products - Mobile Optimized */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quoted Products</h4>
+                                        <div className="space-y-4">
+                                            {quotationItems.products?.map(product => (
+                                                <div key={product.product_id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+                                                    <h5 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                                                        {product.product_name}
+                                                    </h5>
+                                                    <div className="space-y-3">
+                                                        {product.quantities?.map(quantity => {
+                                                            const requestedQty = quantity.requested_quantity || 0;
+                                                            const availableQty = quantity.available_quantity || 0;
+                                                            const isFullMatch = requestedQty === availableQty && availableQty > 0;
+                                                            const isPartialMatch = availableQty > 0 && availableQty < requestedQty;
+                                                            const missingQuantity = requestedQty - availableQty;
+
+                                                            return (
+                                                                <div key={quantity.quotation_item_id} className={`p-3 rounded-md border-l-4 ${
+                                                                    isFullMatch ? 'bg-green-50 dark:bg-green-900/20 border-green-500' :
+                                                                        isPartialMatch ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
+                                                                            'bg-red-50 dark:bg-red-900/20 border-red-500'
+                                                                }`}>
+                                                                    <div className="space-y-2">
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            Size: {quantity.quantity_size} ({quantity.unit_type})
+                                                                        </p>
+                                                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                                                            <div>
+                                                                                <span className="text-gray-600 dark:text-gray-400">Requested:</span>
+                                                                                <p className="font-medium">{requestedQty}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-gray-600 dark:text-gray-400">Available:</span>
+                                                                                <p className={`font-medium ${
+                                                                                    isFullMatch ? 'text-green-600' :
+                                                                                        isPartialMatch ? 'text-yellow-600' :
+                                                                                            'text-red-600'
+                                                                                }`}>
+                                                                                    {availableQty}
+                                                                                </p>
+                                                                            </div>
+                                                                            {isPartialMatch && (
+                                                                                <div>
+                                                                                    <span className="text-gray-600 dark:text-gray-400">Missing:</span>
+                                                                                    <p className="font-medium text-red-600">{missingQuantity}</p>
+                                                                                </div>
+                                                                            )}
+                                                                            <div>
+                                                                                <span className="text-gray-600 dark:text-gray-400">Price/Unit:</span>
+                                                                                <p className="font-medium">₹{parseFloat(quantity.quoted_price_per_unit || 0).toFixed(2)}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                                                                                ₹{parseFloat(quantity.total_price || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                                            </p>
+                                                                            <p className={`text-xs px-2 py-1 rounded-full ${
+                                                                                isFullMatch ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' :
+                                                                                    isPartialMatch ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' :
+                                                                                        'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                                                                            }`}>
+                                                                                {isFullMatch ? 'Full Match' : isPartialMatch ? 'Partial Match' : 'Not Available'}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }) || []}
+                                                    </div>
+                                                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                                                        <p className="text-right text-lg font-semibold text-gray-900 dark:text-white">
+                                                            Product Total: ₹{(product.product_total || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )) || []}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 dark:text-gray-400 text-center py-4">No quotation details available.</p>
+                            )}
+                        </div>
+                    ) : (
+                        // Chat Section for Mobile
+                        <div className="flex flex-col h-full">
+                            <div className="flex-grow bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+                                <div className="flex-grow p-4 overflow-y-auto custom-scrollbar">
+                                    {loadingChat ? (
+                                        <div className="flex justify-center items-center h-full">
+                                            <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+                                        </div>
+                                    ) : chatError ? (
+                                        <div className="flex justify-center items-center h-full">
+                                            <div className="text-red-500 text-center bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                                                <p className="font-medium">Error loading chat</p>
+                                                <p className="text-sm mt-1">{chatError}</p>
+                                            </div>
+                                        </div>
+                                    ) : quotationMessages.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {quotationMessages.map((msg, index) => {
+                                                const isCurrentUser = msg.sender_id === buyerUser?.id;
+                                                const showAvatar = index === 0 || quotationMessages[index - 1]?.sender_id !== msg.sender_id;
+
+                                                return (
+                                                    <div
+                                                        key={msg.id}
+                                                        className={`flex items-end gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
+                                                    >
+                                                        {showAvatar && (
+                                                            <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-medium ${
+                                                                isCurrentUser
+                                                                    ? 'bg-green-500 text-white'
+                                                                    : 'bg-blue-500 text-white'
+                                                            }`}>
+                                                                {isCurrentUser ? 'Y' : 'S'}
+                                                            </div>
+                                                        )}
+
+                                                        <div className={`flex flex-col max-w-[80%] min-w-0 ${isCurrentUser ? 'items-end' : 'items-start'} ${!showAvatar ? (isCurrentUser ? 'mr-10' : 'ml-10') : ''}`}>
+                                                            {showAvatar && (
+                                                                <span className={`text-xs font-medium mb-1 px-1 ${
+                                                                    isCurrentUser ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
+                                                                }`}>
+                                                                    {isCurrentUser ? 'You' : (selectedQuotation.seller_name || `Seller #${selectedQuotation.seller_id}`)}
+                                                                </span>
+                                                            )}
+
+                                                            <div className={`px-4 py-3 rounded-2xl shadow-sm max-w-full ${
+                                                                isCurrentUser
+                                                                    ? 'bg-green-500 text-white rounded-br-md'
+                                                                    : 'bg-blue-500 text-white rounded-bl-md'
+                                                            }`}>
+                                                                <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+                                                                    {msg.message}
+                                                                </p>
+                                                            </div>
+
+                                                            <span className={`text-xs mt-1 px-1 ${
+                                                                isCurrentUser ? 'text-gray-500' : 'text-gray-500 dark:text-gray-400'
+                                                            }`}>
+                                                                {formatDateTime(msg.created_at)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-center items-center h-full">
+                                            <div className="text-center">
+                                                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                    <Send size={24} className="text-gray-400" />
+                                                </div>
+                                                <p className="text-gray-500 dark:text-gray-400 font-medium">No messages yet</p>
+                                                <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Start the conversation!</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={chatMessagesEndRef} />
+                                </div>
+
+                                {/* Chat Input Section - Mobile */}
+                                <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                                    {isChatDisabled ? (
+                                        <div className="text-center py-4">
+                                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                <Ban size={20} className="text-gray-400" />
+                                            </div>
+                                            <p className="text-gray-500 dark:text-gray-400 font-medium">Order Completed</p>
+                                            <p className="text-gray-400 dark:text-gray-500 text-sm">Chat is no longer available</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-end gap-3">
+                                                <div className="flex-grow relative">
+                                                    <textarea
+                                                        placeholder="Type your message..."
+                                                        value={newMessage}
+                                                        onChange={(e) => {
+                                                            setNewMessage(e.target.value);
+                                                            e.target.style.height = 'auto';
+                                                            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                                                        }}
+                                                        onKeyPress={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                                e.preventDefault();
+                                                                handleSendMessage();
+                                                            }
+                                                        }}
+                                                        rows={1}
+                                                        className="w-full p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none transition-all duration-200"
+                                                        style={{ minHeight: '44px', maxHeight: '120px' }}
+                                                        disabled={loadingChat}
+                                                    />
+                                                </div>
+
+                                                <button
+                                                    onClick={handleSendMessage}
+                                                    disabled={loadingChat || !newMessage.trim()}
+                                                    className="flex-shrink-0 w-11 h-11 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 text-white rounded-2xl transition-all duration-200 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center group"
+                                                >
+                                                    {loadingChat ? (
+                                                        <Loader2 size={18} className="animate-spin" />
+                                                    ) : (
+                                                        <Send size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 px-1">
+                                                Press Enter to send, Shift + Enter for new line
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Desktop Layout (keep existing desktop layout)
     return (
         <div
             ref={containerRef}
@@ -296,7 +635,7 @@ const ResizableLayout = ({
                 onMouseDown={handleMouseDown}
             >
                 <div className="w-1 h-8 bg-gray-400 dark:bg-gray-500 rounded-full group-hover:bg-gray-500 dark:group-hover:bg-gray-400 transition-colors duration-200"></div>
-                <div className="absolute inset-0 -left-1 -right-1"></div> {/* Expand hit area */}
+                <div className="absolute inset-0 -left-1 -right-1"></div>
             </div>
 
             {/* Chat Section (Right Side) */}
@@ -336,7 +675,6 @@ const ResizableLayout = ({
                                             key={msg.id}
                                             className={`flex items-end gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
                                         >
-                                            {/* Avatar placeholder */}
                                             {showAvatar && (
                                                 <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-medium ${
                                                     isCurrentUser
@@ -347,9 +685,7 @@ const ResizableLayout = ({
                                                 </div>
                                             )}
 
-                                            {/* Message bubble */}
                                             <div className={`flex flex-col max-w-[70%] min-w-0 ${isCurrentUser ? 'items-end' : 'items-start'} ${!showAvatar ? (isCurrentUser ? 'mr-10' : 'ml-10') : ''}`}>
-                                                {/* Sender name - only show for first message in sequence */}
                                                 {showAvatar && (
                                                     <span className={`text-xs font-medium mb-1 px-1 ${
                                                         isCurrentUser ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
@@ -358,7 +694,6 @@ const ResizableLayout = ({
                                                     </span>
                                                 )}
 
-                                                {/* Message content */}
                                                 <div className={`px-4 py-3 rounded-2xl shadow-sm max-w-full ${
                                                     isCurrentUser
                                                         ? 'bg-green-500 text-white rounded-br-md'
@@ -369,7 +704,6 @@ const ResizableLayout = ({
                                                     </p>
                                                 </div>
 
-                                                {/* Timestamp */}
                                                 <span className={`text-xs mt-1 px-1 ${
                                                     isCurrentUser ? 'text-gray-500' : 'text-gray-500 dark:text-gray-400'
                                                 }`}>
@@ -396,56 +730,414 @@ const ResizableLayout = ({
 
                     {/* Chat Input Section */}
                     <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
-                        <div className="flex items-end gap-3">
-                            {/* Multi-line input */}
-                            <div className="flex-grow relative">
-                                <textarea
-                                    placeholder="Type your message..."
-                                    value={newMessage}
-                                    onChange={(e) => {
-                                        setNewMessage(e.target.value);
-                                        // Auto-resize textarea
-                                        e.target.style.height = 'auto';
-                                        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                                    }}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleSendMessage();
-                                        }
-                                    }}
-                                    rows={1}
-                                    className="w-full p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none transition-all duration-200"
-                                    style={{ minHeight: '44px', maxHeight: '120px' }}
-                                    disabled={loadingChat}
-                                />
+                        {isChatDisabled ? (
+                            <div className="text-center py-4">
+                                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
+                                    <Ban size={20} className="text-gray-400" />
+                                </div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium">
+                                    Order Completed
+                                </p>
+                                <p className="text-gray-400 dark:text-gray-500 text-sm">
+                                    Chat is no longer available
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-end gap-3">
+                                    <div className="flex-grow relative">
+                                        <textarea
+                                            placeholder="Type your message..."
+                                            value={newMessage}
+                                            onChange={(e) => {
+                                                setNewMessage(e.target.value);
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                                            }}
+                                            onKeyPress={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSendMessage();
+                                                }
+                                            }}
+                                            rows={1}
+                                            className="w-full p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none transition-all duration-200"
+                                            style={{ minHeight: '44px', maxHeight: '120px' }}
+                                            disabled={loadingChat}
+                                        />
 
-                                {/* Character counter for long messages */}
-                                {newMessage.length > 100 && (
-                                    <div className="absolute -bottom-5 right-0 text-xs text-gray-400">
-                                        {newMessage.length}/500
+                                        {newMessage.length > 100 && (
+                                            <div className="absolute -bottom-5 right-0 text-xs text-gray-400">
+                                                {newMessage.length}/500
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={loadingChat || !newMessage.trim()}
+                                        className="flex-shrink-0 w-11 h-11 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 text-white rounded-2xl transition-all duration-200 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center group"
+                                    >
+                                        {loadingChat ? (
+                                            <Loader2 size={18} className="animate-spin" />
+                                        ) : (
+                                            <Send size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                                        )}
+                                    </button>
+                                </div>
+
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 px-1">
+                                    Press Enter to send, Shift + Enter for new line
+                                </p>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// Add this component after the ConfirmationModal component (around line 85)
+
+const ReorderModal = ({ isOpen, order, onClose, onConfirm }) => {
+    const [step, setStep] = useState(1); // 1: Address selection, 2: Order details
+    const [addresses, setAddresses] = useState([]);
+    const [loadingAddresses, setLoadingAddresses] = useState(false);
+    const [selectedAddress, setSelectedAddress] = useState(null);
+    const [orderName, setOrderName] = useState('');
+    const [notes, setNotes] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const getAuthToken = () => localStorage.getItem('buyer_token');
+
+    // Load addresses when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            // Restore saved state
+            const savedReorderData = localStorage.getItem('reorder_state');
+            if (savedReorderData) {
+                try {
+                    const parsed = JSON.parse(savedReorderData);
+                    if (parsed.orderId === order?.id) {
+                        setSelectedAddress(parsed.selectedAddress);
+                        setOrderName(parsed.orderName);
+                        setNotes(parsed.notes);
+                        setStep(parsed.step || 1);
+                    }
+                } catch (e) {
+                    console.error('Error parsing saved reorder state:', e);
+                }
+            }
+
+            // Set default order name
+            if (!orderName && order) {
+                setOrderName(order.order_name || `Order #${order.id}`);
+            }
+
+            fetchAddresses();
+        }
+    }, [isOpen, order]);
+
+    // Save state whenever it changes
+    useEffect(() => {
+        if (isOpen && order) {
+            const stateToSave = {
+                orderId: order.id,
+                selectedAddress,
+                orderName,
+                notes,
+                step
+            };
+            localStorage.setItem('reorder_state', JSON.stringify(stateToSave));
+        }
+    }, [isOpen, order, selectedAddress, orderName, notes, step]);
+
+    const fetchAddresses = async () => {
+        setLoadingAddresses(true);
+        try {
+            const token = getAuthToken();
+            const response = await fetch(`${API_BASE_URL}/api/addresses/my-addresses`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setAddresses(data.data || []);
+                // Auto-select default address if none selected
+                if (!selectedAddress && data.data?.length > 0) {
+                    const defaultAddr = data.data.find(addr => addr.is_default) || data.data[0];
+                    setSelectedAddress(defaultAddr);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching addresses:', error);
+        } finally {
+            setLoadingAddresses(false);
+        }
+    };
+
+    const handleClose = () => {
+        // Clear saved state
+        localStorage.removeItem('reorder_state');
+        setStep(1);
+        setSelectedAddress(null);
+        setOrderName('');
+        setNotes('');
+        onClose();
+    };
+
+    const handleNextStep = () => {
+        if (selectedAddress) {
+            setStep(2);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!selectedAddress || !orderName.trim()) return;
+
+        setIsSubmitting(true);
+        try {
+            const reorderData = {
+                selectedAddress,
+                orderName: orderName.trim(),
+                notes: notes.trim()
+            };
+
+            await onConfirm(reorderData);
+            handleClose();
+        } catch (error) {
+            console.error('Reorder submission error:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1002] p-4"
+            onClick={handleClose}
+        >
+            <div
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        Reorder: {order?.order_name || `Order #${order?.id}`}
+                    </h3>
+                    <button
+                        onClick={handleClose}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
+
+                {/* Step Indicator */}
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700">
+                    <div className="flex items-center space-x-4">
+                        <div className={`flex items-center ${step >= 1 ? 'text-green-600' : 'text-gray-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                                step >= 1 ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-600'
+                            }`}>
+                                1
+                            </div>
+                            <span className="ml-2 text-sm font-medium">Select Address</span>
+                        </div>
+                        <div className={`w-8 h-0.5 ${step >= 2 ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+                        <div className={`flex items-center ${step >= 2 ? 'text-green-600' : 'text-gray-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                                step >= 2 ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-600'
+                            }`}>
+                                2
+                            </div>
+                            <span className="ml-2 text-sm font-medium">Order Details</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                    {step === 1 && (
+                        <div>
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                                    Select Delivery Address
+                                </h4>
+                                <button
+                                    onClick={() => window.open('/buyer/address', '_blank')}
+                                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                                >
+                                    Add New Address
+                                </button>
                             </div>
 
-                            {/* Send button */}
+                            {loadingAddresses ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-green-500" />
+                                </div>
+                            ) : addresses.length > 0 ? (
+                                <div className="space-y-3 max-h-60 overflow-y-auto">
+                                    {addresses.map((address) => (
+                                        <div
+                                            key={address.id}
+                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                                                selectedAddress?.id === address.id
+                                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                                            }`}
+                                            onClick={() => setSelectedAddress(address)}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h5 className="font-medium text-gray-900 dark:text-white">
+                                                            {address.name || 'Address'}
+                                                        </h5>
+                                                        {address.is_default == 1 && (
+                                                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                                                  Default
+                                                                 </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                                                        {address.address_line}
+                                                    </p>
+                                                </div>
+                                                {selectedAddress?.id === address.id && (
+                                                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                    <p className="text-gray-500 dark:text-gray-400 mb-3">No addresses found</p>
+                                    <button
+                                        onClick={() => window.open('/buyer/address', '_blank')}
+                                        className="text-blue-600 hover:text-blue-700 underline"
+                                    >
+                                        Add your first address
+                                    </button>
+
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div className="space-y-6">
+                            <div>
+                                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                                    Order Details
+                                </h4>
+
+                                {/* Selected Address Display */}
+                                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                                    <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                                        Delivery Address:
+                                    </h5>
+                                    <p className="text-gray-900 dark:text-gray-100 text-sm font-medium mb-1">
+                                        {selectedAddress?.name || 'Address'}
+                                    </p>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                                        {selectedAddress?.address_line}
+                                    </p>
+                                    <button
+                                        onClick={() => setStep(1)}
+                                        className="text-blue-600 hover:text-blue-700 text-sm mt-2"
+                                    >
+                                        Change Address
+                                    </button>
+                                </div>
+
+                                {/* Order Name */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Order Name *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={orderName}
+                                        onChange={(e) => setOrderName(e.target.value)}
+                                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        placeholder="Enter order name"
+                                        maxLength={100}
+                                    />
+                                </div>
+
+                                {/* Notes */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        General Notes (Optional)
+                                    </label>
+                                    <textarea
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        rows={3}
+                                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        placeholder="Any special instructions or notes for this order"
+                                        maxLength={500}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {notes.length}/500 characters
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex justify-between">
+                    <button
+                        onClick={handleClose}
+                        className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+                    >
+                        Cancel
+                    </button>
+
+                    <div className="flex space-x-3">
+                        {step === 2 && (
                             <button
-                                onClick={handleSendMessage}
-                                disabled={loadingChat || !newMessage.trim()}
-                                className="flex-shrink-0 w-11 h-11 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 text-white rounded-2xl transition-all duration-200 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center group"
+                                onClick={() => setStep(1)}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
                             >
-                                {loadingChat ? (
-                                    <Loader2 size={18} className="animate-spin" />
+                                Back
+                            </button>
+                        )}
+
+                        {step === 1 ? (
+                            <button
+                                onClick={handleNextStep}
+                                disabled={!selectedAddress}
+                                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Next
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!selectedAddress || !orderName.trim() || isSubmitting}
+                                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        Creating Order...
+                                    </>
                                 ) : (
-                                    <Send size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                                    'Create Reorder'
                                 )}
                             </button>
-                        </div>
-
-                        {/* Helper text */}
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 px-1">
-                            Press Enter to send, Shift + Enter for new line
-                        </p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -497,11 +1189,16 @@ const MyOrders = () => {
     const [quotationItems, setQuotationItems] = useState({}); // Initialized as an empty object
     const [loadingQuotationItems, setLoadingQuotationItems] = useState(false);
     const [quotationItemError, setQuotationItemError] = useState(null);
+    const [acceptedQuotation, setAcceptedQuotation] = useState(null);
+    const [loadingAcceptedQuotation, setLoadingAcceptedQuotation] = useState(false);
 
     // Confirmation Modal State
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmMessage, setConfirmMessage] = useState('');
     const [confirmAction, setConfirmAction] = useState(null); // Corrected: Initialize with useState(null)
+    // Add these new state variables after the existing ones
+    const [showReorderModal, setShowReorderModal] = useState(false);
+    const [reorderingOrder, setReorderingOrder] = useState(null);
 
     // --- General UI States ---
     const [theme, setTheme] = useState(() => {
@@ -553,19 +1250,20 @@ const MyOrders = () => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'pending':
-                return 'bg-yellow-500 text-white';
+                return 'bg-amber-400 text-white';        // soft ochre (professional yellow)
             case 'in_progress':
-                return 'bg-blue-500 text-white';
+                return 'bg-sky-500 text-white';             // clean bright blue
             case 'accepted':
-                return 'bg-green-500 text-white';
+                return 'bg-emerald-500 text-white';         // modern green
             case 'completed':
-                return 'bg-purple-500 text-white';
+                return 'bg-indigo-500 text-white';          // calm rich purple
             case 'cancelled':
-                return 'bg-red-500 text-white';
+                return 'bg-rose-500 text-white';            // elegant red tone
             default:
-                return 'bg-gray-500 text-white';
+                return 'bg-gray-400 text-white';            // neutral fallback
         }
     };
+
 
     const getMatchStatusColor = (status) => {
         switch (status) {
@@ -700,12 +1398,17 @@ const MyOrders = () => {
                 const fetchedOrders = Array.isArray(data.data.orders) ? data.data.orders : [];
 
                 const ordersWithSummary = await Promise.all(fetchedOrders.map(async (order) => {
+                    // For accepted/completed orders, show "1 Accepted" instead of 0
+                    if (order.status === 'accepted' || order.status === 'completed') {
+                        return { ...order, total_quotations_received: 1, quotation_status: 'accepted' };
+                    }
+
+                    // For other orders, get quotation count
                     const summaryResponse = await fetch(`${API_BASE_URL}/api/orders/${order.id}/quotation-summary`, {
                         headers: { 'Authorization': `Bearer ${token}` },
                     });
                     if (summaryResponse.ok) {
                         const summaryData = await summaryResponse.json();
-                        // Ensure summaryData.data is an array before accessing length
                         return { ...order, total_quotations_received: Array.isArray(summaryData.data) ? summaryData.data.length : 0 };
                     }
                     return { ...order, total_quotations_received: 0 };
@@ -853,6 +1556,45 @@ const MyOrders = () => {
             setLoadingQuotations(false);
         }
     }, [getAuthToken, quotationSort, quotationItemFilter, showToast]);
+    const fetchAcceptedQuotation = useCallback(async (orderId) => {
+        setLoadingAcceptedQuotation(true);
+        try {
+            const token = getAuthToken();
+            if (!token) {
+                showToast('Please log in to view accepted quotation.', 'error');
+                setLoadingAcceptedQuotation(false);
+                return;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/accepted-quotation`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    setAcceptedQuotation(null);
+                    setLoadingAcceptedQuotation(false);
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                setAcceptedQuotation(data.data);
+            } else {
+                console.warn('No accepted quotation found:', data.message);
+                setAcceptedQuotation(null);
+            }
+        } catch (err) {
+            console.error('Fetch accepted quotation error:', err);
+            setAcceptedQuotation(null);
+            showToast('Failed to load accepted quotation.', 'error');
+        } finally {
+            setLoadingAcceptedQuotation(false);
+        }
+    }, [getAuthToken, showToast]);
+
 
     // 2. ADD useEffect to refetch when filters change
     useEffect(() => {
@@ -951,37 +1693,50 @@ const MyOrders = () => {
         setShowConfirmModal(true);
     }, [getAuthToken, fetchOrders, showToast]);
 
-    const handleReorder = useCallback(async (order) => {
-        setConfirmMessage(`Are you sure you want to reorder "${order.order_name || `Order #${order.id}`}"? This will create a new order with the same items.`);
-        setConfirmAction(() => async () => {
-            setShowConfirmModal(false);
-            try {
-                const token = getAuthToken();
-                if (!token) {
-                    showToast('Please log in to reorder.', 'error');
-                    return;
-                }
+    const handleReorder = useCallback((order) => {
+        setReorderingOrder(order);
+        setShowReorderModal(true);
+    }, []);
 
-                const response = await fetch(`${API_BASE_URL}/api/orders/${order.id}/reorder`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    showToast('Order reordered successfully!', 'success');
-                    navigate('/buyer/dashboard');
-                } else {
-                    showToast(data.message || 'Failed to reorder.', 'error');
-                }
-            } catch (err) {
-                console.error('Reorder error:', err);
-                showToast('Failed to reorder. Please try again.', 'error');
+    const handleConfirmReorder = useCallback(async (reorderData) => {
+        try {
+            const token = getAuthToken();
+            if (!token) {
+                showToast('Please log in to reorder.', 'error');
+                return;
             }
-        });
-        setShowConfirmModal(true);
-    }, [getAuthToken, navigate, showToast]);
+
+            const response = await fetch(`${API_BASE_URL}/api/orders/${reorderingOrder.id}/reorder`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    address_id: reorderData.selectedAddress.id,
+                    order_name: reorderData.orderName,
+                    notes: reorderData.notes,
+                    delivery_address: reorderData.selectedAddress.address_line,
+                    delivery_latitude: reorderData.selectedAddress.latitude,
+                    delivery_longitude: reorderData.selectedAddress.longitude
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showToast('Order reordered successfully!', 'success');
+                // Clear saved state
+                localStorage.removeItem('reorder_state');
+                navigate('/buyer/orders');
+            } else {
+                showToast(data.message || 'Failed to reorder.', 'error');
+            }
+        } catch (err) {
+            console.error('Reorder error:', err);
+            showToast('Failed to reorder. Please try again.', 'error');
+        }
+    }, [getAuthToken, navigate, showToast, reorderingOrder]);
 
     const handleAcceptQuotation = useCallback(async (orderId, quotationId) => {
         console.log('handleAcceptQuotation called with:', { orderId, quotationId }); // Debug log
@@ -1052,30 +1807,29 @@ const MyOrders = () => {
 
     // Function to handle multi-select filter changes
     const handleStatusFilterChange = (status) => {
-        setCurrentPage(1); // Reset to first page on filter change
-        setStatusFilter(prevFilters => {
-            if (prevFilters.includes(status)) {
-                // If 'All Statuses' is selected, clear all others and keep only 'All Statuses'
-                if (status === '') {
-                    return []; // If 'All Statuses' is deselected, clear all filters
-                }
-                return prevFilters.filter(f => f !== status);
-            } else {
-                // If a new status is selected, add it. If 'All Statuses' was active, remove it.
-                if (status === '') {
-                    return ['']; // Selecting 'All Statuses' should override others
-                }
-                return [...prevFilters.filter(f => f !== ''), status]; // Add new status, remove 'All Statuses' if present
-            }
-        });
+        setCurrentPage(1); // Reset to first page
+
+        // If already selected, deselect (toggle off)
+        if (statusFilter.length === 1 && statusFilter[0] === status) {
+            setStatusFilter([]);
+        } else {
+            setStatusFilter([status]); // Select only one
+        }
     };
+
 
     const handleViewDetails = (order) => {
         setSelectedOrder(order);
         setShowOrderDetailsModal(true);
         setActiveOrderTab('details');
         fetchOrderDetails(order.id);
-        fetchQuotationsForOrder(order.id);
+
+        // Fetch appropriate quotation data based on order status
+        if (order.status === 'accepted' || order.status === 'completed') {
+            fetchAcceptedQuotation(order.id);
+        } else {
+            fetchQuotationsForOrder(order.id);
+        }
     };
 
     // ❌ REMOVED fetchQuotationMessages call
@@ -1094,6 +1848,9 @@ const MyOrders = () => {
         setOrderDetailError(null);
         setQuotations([]);
         setQuotationError(null);
+        // Clear accepted quotation state
+        setAcceptedQuotation(null);
+        setLoadingAcceptedQuotation(false);
     };
 
     const handleCloseQuotationDetailsModal = () => {
@@ -1108,10 +1865,9 @@ const MyOrders = () => {
 
 
     const OrderCard = ({ order }) => {
-        const isPendingOrInProgress = ['pending', 'in_progress','accepted'].includes(order.status);
+        const isPendingOrInProgress = ['pending', 'in_progress'].includes(order.status); // removed 'accepted'
         const isCancelled = order.status === 'cancelled';
         const isCompleted = order.status === 'completed';
-
 
         return (
             <div
@@ -1124,8 +1880,8 @@ const MyOrders = () => {
                             {order.order_name || `Order #${order.id}`}
                         </h3>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                            {order.status.replace(/_/g, ' ')}
-                        </span>
+                        {order.status.replace(/_/g, ' ')}
+                    </span>
                     </div>
 
                     <div className="text-gray-600 dark:text-gray-300 text-sm mb-4">
@@ -1135,10 +1891,13 @@ const MyOrders = () => {
                         </p>
                         <p className="flex items-center">
                             <Quote className="inline-block mr-2 text-purple-400" size={16} />
-                            Quotations Received: {order.total_quotations_received}
+                            {order.status === 'accepted' ? 'Quotation: Accepted' :
+                                order.status === 'completed' ? 'Quotation: Completed' :
+                                    `Quotations Received: ${order.total_quotations_received}`}
                         </p>
                     </div>
                 </div>
+
                 <div className="flex justify-end space-x-3 mt-4">
                     {isPendingOrInProgress && (
                         <button
@@ -1150,7 +1909,7 @@ const MyOrders = () => {
                         </button>
                     )}
 
-                    {isCancelled && (
+                    {(isCancelled || isCompleted) && (
                         <button
                             onClick={() => handleReorder(order)}
                             className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 transition duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -1159,17 +1918,6 @@ const MyOrders = () => {
                             Reorder
                         </button>
                     )}
-                    {isCompleted && (
-                        <button
-                            onClick={() => handleReorder(order)}
-                            className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 transition duration-300 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        >
-                            <ShoppingCart size={16} className="mr-1" />
-                            Reorder
-                        </button>
-                    )}
-
-
 
                     <button
                         onClick={() => handleViewDetails(order)}
@@ -1182,6 +1930,7 @@ const MyOrders = () => {
             </div>
         );
     };
+
 
 
     return (
@@ -1208,13 +1957,14 @@ const MyOrders = () => {
                     </div>
 
                     {/* Multi-choice filter chips */}
+                    {/* Single-Select Status Filter */}
                     <div className="w-full md:w-2/3 flex flex-wrap gap-2 justify-center md:justify-start">
                         {['', 'pending', 'in_progress', 'accepted', 'completed', 'cancelled'].map(status => (
                             <button
                                 key={status}
                                 onClick={() => handleStatusFilterChange(status)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
-                                    ${statusFilter.includes(status) || (statusFilter.length === 0 && status === '')
+        ${statusFilter.includes(status) || (statusFilter.length === 0 && status === '')
                                     ? 'bg-green-600 text-white shadow-md'
                                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
                                 }`
@@ -1224,6 +1974,7 @@ const MyOrders = () => {
                             </button>
                         ))}
                     </div>
+
 
                     {/* Pagination - Simplified, can be expanded */}
                     <div className="flex-grow flex justify-end items-center space-x-2">
@@ -1276,16 +2027,24 @@ const MyOrders = () => {
             {/* Order Details Modal */}
             {showOrderDetailsModal && selectedOrder && (
                 <div
-                    // Increased z-index for order details modal
+                    // Add click handler to the backdrop
                     className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[999] p-4 overflow-y-auto"
+                    onClick={(e) => {
+                        // Close modal if clicking on backdrop
+                        if (e.target === e.currentTarget) {
+                            handleCloseOrderDetailsModal();
+                        }
+                    }}
                 >
                     <div
                         className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-4xl relative min-h-[80vh] flex flex-col"
+                        // Prevent modal close when clicking inside the modal content
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close Button */}
                         <button
                             onClick={handleCloseOrderDetailsModal}
-                            className="absolute top-4 right-4 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition duration-300"
+                            className="absolute top-2 right-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition duration-300"
                         >
                             <X size={24} />
                         </button>
@@ -1298,7 +2057,7 @@ const MyOrders = () => {
                                     {selectedOrder.order_name || `Order #${selectedOrder.id}`}
                                 </h2>
                                 {selectedOrder.status && (
-                                    <span className={`px-4 py-1 rounded-full text-md font-medium ${getStatusColor(selectedOrder.status)}`}>
+                                    <span className={`px-3  py-1 rounded-full text-md font-medium ${getStatusColor(selectedOrder.status)}`}>
                                         {selectedOrder.status.replace(/_/g, ' ')}
                                     </span>
                                 )}
@@ -1310,24 +2069,38 @@ const MyOrders = () => {
                         </div>
 
                         {/* Sub-navbar for Details/Quotations */}
-                        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+                        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4 space-x-4">
                             <button
-                                className={`py-2 px-4 text-lg font-medium ${activeOrderTab === 'details' ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                                className={`relative py-2 px-4 text-lg font-semibold transition-all duration-200
+                                     ${activeOrderTab === 'details'
+                                    ? 'text-green-600 dark:text-green-400 after:content-[""] after:absolute after:-bottom-[1px] after:left-0 after:w-full after:h-[2px] after:bg-green-500'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
                                 onClick={() => setActiveOrderTab('details')}
                             >
                                 Order Details
                             </button>
+
                             <button
-                                className={`py-2 px-4 text-lg font-medium ${activeOrderTab === 'quotations' ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                                className={`relative py-2 px-4 text-lg font-semibold transition-all duration-200
+                                 ${activeOrderTab === 'quotations'
+                                    ? 'text-green-600 dark:text-green-400 after:content-[""] after:absolute after:-bottom-[1px] after:left-0 after:w-full after:h-[2px] after:bg-green-500'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
                                 onClick={() => setActiveOrderTab('quotations')}
                             >
-                                Quotations ({quotations.length})
+                                {(selectedOrder?.status === 'accepted' || selectedOrder?.status === 'completed')
+                                    ? `Quotation (${selectedOrder?.status === 'accepted' ? 'Accepted' : 'Completed'})`
+                                    : `Quotations (${quotations.length})`
+                                }
                             </button>
+
                         </div>
+
 
                         {/* Content based on active tab */}
                         {activeOrderTab === 'details' && (
-                            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="flex-grow max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
                                 {loadingOrderDetails ? (
                                     <div className="flex justify-center items-center h-full">
                                         <Loader2 className="w-8 h-8 animate-spin text-green-500" />
@@ -1402,8 +2175,8 @@ const MyOrders = () => {
                                                                 {productName}
                                                                 {info.category_name && (
                                                                     <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">
-                                                ({info.category_name})
-                                            </span>
+                        ({info.category_name})
+                      </span>
                                                                 )}
                                                             </p>
                                                             <p className="text-gray-600 dark:text-gray-400 text-sm ml-7 mb-2 italic">
@@ -1442,151 +2215,237 @@ const MyOrders = () => {
 
 
 
+
                         {activeOrderTab === 'quotations' && (
                             <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
-                                <div className="flex flex-wrap gap-3 mb-4 sticky top-0 bg-white dark:bg-gray-800 py-2 z-10 border-b border-gray-200 dark:border-gray-700 -mx-6 px-6">
-                                    {/* Item Match Filters */}
-                                    <div className="flex items-center space-x-2">
-                                        <span className="text-gray-700 dark:text-gray-300">Match Status:</span>
-                                        {['all', 'full', 'partial', 'missing'].map(filter => {
-                                            const filterCount = quotationSummary.reduce((sum, q) => {
-                                                if (filter === 'all') return quotations.length;
-                                                return sum + (q.counts[filter] || 0);
-                                            }, 0);
-
-                                            return (
-                                                <button
-                                                    key={filter}
-                                                    onClick={() => setQuotationItemFilter(filter)}
-                                                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
-                                ${quotationItemFilter === filter
-                                                        ? 'bg-green-500 text-white shadow-md'
-                                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`
-                                                    }
-                                                >
-                                                    {filter === 'full' ? 'Full Match' : filter === 'partial' ? 'Partial Match' : filter === 'missing' ? 'Missing Items' : 'All'}
-                                                    {/* Show count badge */}
-                                                    {filterCount > 0 && (
-                                                        <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${
-                                                            filter === 'full' ? 'bg-green-600 text-white' :
-                                                                filter === 'partial' ? 'bg-yellow-600 text-white' :
-                                                                    filter === 'missing' ? 'bg-red-600 text-white' :
-                                                                        'bg-blue-600 text-white'
-                                                        }`}>
-                                    {filter === 'all' ? quotations.length : filterCount}
-                                </span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Price/Distance Sort */}
-                                    <div className="flex items-center space-x-2 ml-auto">
-                                        <span className="text-gray-700 dark:text-gray-300">Sort By:</span>
-                                        <select
-                                            value={quotationSort}
-                                            onChange={(e) => setQuotationSort(e.target.value)}
-                                            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                        >
-                                            <option value="price_asc">Price: Low to High</option>
-                                            <option value="price_desc">Price: High to Low</option>
-                                            <option value="distance_asc">Distance: Low to High</option>
-                                            <option value="distance_desc">Distance: High to Low</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {loadingQuotations ? (
-                                    <div className="flex justify-center items-center h-full">
-                                        <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-                                    </div>
-                                ) : quotationError ? (
-                                    <div className="text-red-500 text-center py-4">{quotationError}</div>
-                                ) : quotations.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {quotations.map((quotation) => (
-                                            <div key={quotation.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md p-5 border border-gray-100 dark:border-gray-600">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                                        {quotation.seller_name || `Seller #${quotation.seller_id}`}
+                                {/* Show accepted quotation for accepted/completed orders */}
+                                {(selectedOrder.status === 'accepted' || selectedOrder.status === 'completed') ? (
+                                    <div>
+                                        {loadingAcceptedQuotation ? (
+                                            <div className="flex justify-center items-center h-full">
+                                                <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+                                            </div>
+                                        ) : acceptedQuotation ? (
+                                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-md p-6 border-2 border-green-200 dark:border-green-700">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                                                        <CheckCircle className="text-green-500 mr-2" size={24} />
+                                                        Accepted Quotation
                                                     </h4>
-                                                    <div className="flex flex-col items-end gap-2">
-                                <span className={`text-sm font-medium ${getMatchStatusColor(quotation.match_status || 'unknown')}`}>
-                                    {quotation.match_status || 'Unknown'}
-                                </span>
-                                                        {/* Count badges */}
-                                                        {quotation.counts && (
-                                                            <div className="flex gap-1">
-                                                                {quotation.counts.full > 0 && (
-                                                                    <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-green-600 rounded-full">
-                                                {quotation.counts.full}
-                                            </span>
-                                                                )}
-                                                                {quotation.counts.partial > 0 && (
-                                                                    <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-yellow-600 rounded-full">
-                                                {quotation.counts.partial}
-                                            </span>
-                                                                )}
-                                                                {quotation.counts.missing > 0 && (
-                                                                    <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                                                {quotation.counts.missing}
-                                            </span>
-                                                                )}
-                                                            </div>
+                                                    <span className="px-3 py-1 bg-green-500 text-white rounded-full text-sm font-medium">
+                                Accepted
+                            </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                    <div>
+                                                        <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Seller Information</h5>
+                                                        <p className="text-gray-700 dark:text-gray-300 mb-1">
+                                                            <strong>Name:</strong> {acceptedQuotation.seller_name}
+                                                        </p>
+                                                        <p className="text-gray-700 dark:text-gray-300 mb-1">
+                                                            <strong>Phone:</strong> {acceptedQuotation.seller_phone}
+                                                        </p>
+                                                        <p className="text-gray-700 dark:text-gray-300">
+                                                            <strong>Email:</strong> {acceptedQuotation.seller_email}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Order Details</h5>
+                                                        <p className="text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                                                            <MapPin size={16} className="mr-2 text-indigo-400" />
+                                                            Distance: {acceptedQuotation.distance_km ? `${acceptedQuotation.distance_km.toFixed(1)} km` : 'N/A'}
+                                                        </p>
+                                                        <p className="text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                                                            <IndianRupee size={16} className="mr-2 text-green-500" />
+                                                            Total: ₹{parseFloat(acceptedQuotation.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                        </p>
+                                                        {acceptedQuotation.discount > 0 && (
+                                                            <p className="text-gray-700 dark:text-gray-300 flex items-center">
+                                                                <Tag size={16} className="mr-2 text-orange-500" />
+                                                                Discount: ₹{parseFloat(acceptedQuotation.discount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                            </p>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <p className="text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                                    <MapPin size={16} className="mr-2 text-indigo-400" />
-                                                    Distance: {quotation.distance_km ? `${quotation.distance_km.toFixed(1)} km` : 'N/A'}
-                                                </p>
-                                                <p className="text-gray-700 dark:text-gray-300 mb-4 flex items-center">
-                                                    <IndianRupee size={16} className="mr-2 text-green-500" />
-                                                    Total Price: ₹{parseFloat(quotation.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                                                </p>
-                                                <div className="flex justify-end space-x-2">
-                                                    {selectedOrder.status === 'pending' || selectedOrder.status === 'in_progress' ? (
+
+                                                {acceptedQuotation.notes && (
+                                                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                                                        <p className="text-sm text-gray-800 dark:text-gray-200">
+                                                            <strong>Seller Notes:</strong> {acceptedQuotation.notes}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex justify-end space-x-3">
+                                                    {selectedOrder.status === 'accepted' ? (
                                                         <button
-                                                            onClick={() => {
-                                                                console.log('Accept button clicked', {
-                                                                    orderId: selectedOrder?.id,
-                                                                    quotationId: quotation?.id
-                                                                });
-                                                                if (selectedOrder?.id && quotation?.id) {
-                                                                    handleAcceptQuotation(selectedOrder.id, quotation.id);
-                                                                } else {
-                                                                    console.error('Missing order or quotation ID');
-                                                                    showToast('Error: Missing order or quotation information', 'error');
-                                                                }
-                                                            }}
-                                                            disabled={loadingChat}
-                                                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300 disabled:opacity-50"
+                                                            onClick={() => handleViewQuotationDetails(acceptedQuotation)}
+                                                            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition duration-300"
                                                         >
-                                                            {loadingChat ? (
-                                                                <>
-                                                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                                                    Accepting...
-                                                                </>
-                                                            ) : (
-                                                                'Accept Quotation'
-                                                            )}
+                                                            <MessageSquare size={16} className="mr-2" />
+                                                            Chat with Seller
                                                         </button>
                                                     ) : (
-                                                        <span className="text-sm text-gray-500 dark:text-gray-400">Order {selectedOrder.status}</span>
+                                                        <button
+                                                            onClick={() => handleViewQuotationDetails(acceptedQuotation)}
+                                                            className="flex items-center px-4 py-2 bg-amber-500 text-white rounded-md text-sm font-medium hover:bg-amber-600 transition duration-300 shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
+                                                        >
+                                                            <Eye size={16} className="mr-2" />
+                                                            View Details Only
+                                                        </button>
+
                                                     )}
-                                                    <button
-                                                        onClick={() => handleViewQuotationDetails(quotation)}
-                                                        className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition duration-300"
-                                                    >
-                                                        <MessageSquare size={14} className="inline-block mr-1" /> Chat / Details
-                                                    </button>
                                                 </div>
                                             </div>
-                                        ))}
+                                        ) : (
+                                            <div className="text-center py-8">
+                                                <AlertTriangle size={48} className="mx-auto mb-4 text-yellow-500" />
+                                                <p className="text-gray-500 dark:text-gray-400">No accepted quotation found for this order.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <p className="text-gray-500 dark:text-gray-400 text-center py-4">No quotations found for the selected filter.</p>
+                                    // Original quotations list for pending/in_progress orders
+                                    <div>
+                                        <div className="flex flex-wrap gap-3 mb-4 sticky top-0 bg-white dark:bg-gray-800 py-2 z-10 border-b border-gray-200 dark:border-gray-700 -mx-6 px-6">
+                                            {/* Item Match Filters */}
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-gray-700 dark:text-gray-300">Match Status:</span>
+                                                {['all', 'full', 'partial', 'missing'].map(filter => {
+                                                    const filterCount = quotationSummary.reduce((sum, q) => {
+                                                        if (filter === 'all') return quotations.length;
+                                                        return sum + (q.counts[filter] || 0);
+                                                    }, 0);
+
+                                                    return (
+                                                        <button
+                                                            key={filter}
+                                                            onClick={() => setQuotationItemFilter(filter)}
+                                                            className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
+                                ${quotationItemFilter === filter
+                                                                ? 'bg-green-500 text-white shadow-md'
+                                                                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`
+                                                            }
+                                                        >
+                                                            {filter === 'full' ? 'Full Match' : filter === 'partial' ? 'Partial Match' : filter === 'missing' ? 'Missing Items' : 'All'}
+                                                            {filterCount > 0 && (
+                                                                <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${
+                                                                    filter === 'full' ? 'bg-green-600 text-white' :
+                                                                        filter === 'partial' ? 'bg-yellow-600 text-white' :
+                                                                            filter === 'missing' ? 'bg-red-600 text-white' :
+                                                                                'bg-blue-600 text-white'
+                                                                }`}>
+                                            {filterCount}
+                                        </span>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Price/Distance Sort */}
+                                            <div className="flex items-center space-x-2 ml-auto">
+                                                <span className="text-gray-700 dark:text-gray-300">Sort By:</span>
+                                                <select
+                                                    value={quotationSort}
+                                                    onChange={(e) => setQuotationSort(e.target.value)}
+                                                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                >
+                                                    <option value="price_asc">Price: Low to High</option>
+                                                    <option value="price_desc">Price: High to Low</option>
+                                                    <option value="distance_asc">Distance: Low to High</option>
+                                                    <option value="distance_desc">Distance: High to Low</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {loadingQuotations ? (
+                                            <div className="flex justify-center items-center h-full">
+                                                <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+                                            </div>
+                                        ) : quotationError ? (
+                                            <div className="text-red-500 text-center py-4">{quotationError}</div>
+                                        ) : quotations.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {quotations.map((quotation) => (
+                                                    <div key={quotation.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md p-5 border border-gray-100 dark:border-gray-600">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                                                {quotation.seller_name || `Seller #${quotation.seller_id}`}
+                                                            </h4>
+                                                            <div className="flex flex-col items-end gap-2">
+                                        <span className={`text-sm font-medium ${getMatchStatusColor(quotation.match_status || 'unknown')}`}>
+                                            {quotation.match_status || 'Unknown'}
+                                        </span>
+                                                                {quotation.counts && (
+                                                                    <div className="flex gap-1">
+                                                                        {quotation.counts.full > 0 && (
+                                                                            <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-green-600 rounded-full">
+                                                        {quotation.counts.full}
+                                                    </span>
+                                                                        )}
+                                                                        {quotation.counts.partial > 0 && (
+                                                                            <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-yellow-600 rounded-full">
+                                                        {quotation.counts.partial}
+                                                    </span>
+                                                                        )}
+                                                                        {quotation.counts.missing > 0 && (
+                                                                            <span className="inline-flex items-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                                                        {quotation.counts.missing}
+                                                    </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                                                            <MapPin size={16} className="mr-2 text-indigo-400" />
+                                                            Distance: {quotation.distance_km ? `${quotation.distance_km.toFixed(1)} km` : 'N/A'}
+                                                        </p>
+                                                        <p className="text-gray-700 dark:text-gray-300 mb-4 flex items-center">
+                                                            <IndianRupee size={16} className="mr-2 text-green-500" />
+                                                            Total Price: ₹{parseFloat(quotation.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                        </p>
+                                                        <div className="flex justify-end space-x-2">
+                                                            {selectedOrder.status === 'pending' || selectedOrder.status === 'in_progress' ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (selectedOrder?.id && quotation?.id) {
+                                                                            handleAcceptQuotation(selectedOrder.id, quotation.id);
+                                                                        } else {
+                                                                            showToast('Error: Missing order or quotation information', 'error');
+                                                                        }
+                                                                    }}
+                                                                    disabled={loadingChat}
+                                                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300 disabled:opacity-50"
+                                                                >
+                                                                    {loadingChat ? (
+                                                                        <>
+                                                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                                            Accepting...
+                                                                        </>
+                                                                    ) : (
+                                                                        'Accept Quotation'
+                                                                    )}
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-sm text-gray-500 dark:text-gray-400">Order {selectedOrder.status}</span>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleViewQuotationDetails(quotation)}
+                                                                className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition duration-300"
+                                                            >
+                                                                <MessageSquare size={14} className="inline-block mr-1" /> Chat / Details
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 dark:text-gray-400 text-center py-4">No quotations found for the selected filter.</p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -1607,8 +2466,8 @@ const MyOrders = () => {
                     }}
                 >
                     <div
-                        className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-6xl h-[90vh] flex flex-col relative"
-                        onClick={(e) => e.stopPropagation()} // Prevent modal close when clicking inside
+                        className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-3 md:p-6 w-full max-w-6xl h-[90vh] flex flex-col relative mx-2 md:mx-0"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close Button */}
                         <button
@@ -1637,10 +2496,23 @@ const MyOrders = () => {
                             setNewMessage={setNewMessage}
                             handleSendMessage={handleSendMessage}
                             formatDateTime={formatDateTime}
+                            isChatDisabled={selectedOrder?.status === 'completed'}
                         />
                     </div>
                 </div>
             )}
+
+            {/* Add this before the closing </div> tag at the very end */}
+            {/* Reorder Modal */}
+            <ReorderModal
+                isOpen={showReorderModal}
+                order={reorderingOrder}
+                onClose={() => {
+                    setShowReorderModal(false);
+                    setReorderingOrder(null);
+                }}
+                onConfirm={handleConfirmReorder}
+            />
             {/* Global Confirmation Modal */}
             <ConfirmationModal
                 isOpen={showConfirmModal}
