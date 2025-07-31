@@ -19,7 +19,6 @@ require('dotenv').config();
 // SECTION 1: DEPENDENCIES & CONFIGURATION
 // ========================================
 
-
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -30,9 +29,12 @@ const io = socketIo(server, {
     }
 });
 const PORT =  3023;
+app.set('trust proxy', 1);
+
+
 
 // Security middleware
-app.use(helmet());
+
 app.use(cors({
     origin: '*',  // Vite frontend
     credentials: true                // Allow cookies/headers
@@ -171,12 +173,12 @@ function generateOTP() {
 
 // Email configuration
 const transporter = nodemailer.createTransport({
-    host:  'smtp.gmail.com',
+    host: 'smtp.gmail.com',
     port:  587,
     secure: false,
     auth: {
-        user: 'sqltrytest@gmail.com',
-        pass:  'lool jtgx ycmq nmij'
+        user: 'grocerybid@gmail.com',
+        pass: 'tnmd yalj hdec pyvs'
     }
 });
 
@@ -184,7 +186,7 @@ const transporter = nodemailer.createTransport({
 async function sendEmail(to, subject, html) {
     try {
         await transporter.sendMail({
-            from: 'sqltrytest@gmail.com',
+            from: 'grocerybid@gmail.com',
             to,
             subject,
             html
@@ -199,7 +201,7 @@ async function sendEmail(to, subject, html) {
 // JWT token functions
 function generateToken(payload) {
     return jwt.sign(payload,  'supersecretjwtkey', {
-        expiresIn: '24h'
+        expiresIn:  '24h'
     });
 }
 
@@ -362,6 +364,1454 @@ const chatUpload = multer({
     }
 });
 
+
+
+// ========================================
+// SECTION 5: Email and other functions
+// ========================================
+
+function generateOrderConfirmationEmail(orderData, cartItems) {
+    const currentDate = new Date().toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+
+    // Group items by product
+    const groupedItems = {};
+    cartItems.forEach(item => {
+        const productKey = item.product_id;
+        if (!groupedItems[productKey]) {
+            groupedItems[productKey] = {
+                product_name: item.product_name,
+                product_description: item.product_description,
+                quantities: []
+            };
+        }
+
+        groupedItems[productKey].quantities.push({
+            quantity_value: item.quantity_value,
+            quantity_unit: item.quantity_unit,
+            requested_quantity: item.requested_quantity,
+            notes: item.cart_notes || item.notes || null
+        });
+    });
+
+    const itemsHtml = Object.values(groupedItems).map(product => {
+        const quantitiesHtml = product.quantities.map(qty => `
+      <div style="margin-left: 20px; margin-bottom: 8px;">
+        <div style="color: #e0e0e0; font-size: 14px;">
+          • ${qty.quantity_value}${qty.quantity_unit} (weight) — Qty: ${qty.requested_quantity}
+        </div>
+        ${qty.notes ? `<div style="color: #888; font-size: 12px; margin-left: 15px;">
+          <span style="color: #666;">📝</span> Note: ${qty.notes}
+        </div>` : ''}
+      </div>
+    `).join('');
+
+        return `
+      <div style="background: #4a5568; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+          <span style="color: #9f7aea; margin-right: 8px;">📦</span>
+          <span style="color: #ffffff; font-weight: bold; font-size: 16px;">${product.product_name}</span>
+        </div>
+        <div style="color: #a0aec0; font-style: italic; margin-bottom: 12px; font-size: 14px;">
+          ${product.product_description}
+        </div>
+        ${quantitiesHtml}
+      </div>
+    `;
+    }).join('');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Order Confirmation</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #1a202c;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #2d3748; color: #ffffff;">
+            
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 24px; text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                    <span style="color: #68d391; font-size: 24px; margin-right: 12px;">🏷️</span>
+                    <h1 style="margin: 0; font-size: 24px; font-weight: bold; color: #ffffff;">
+                        Order Confirmation
+                    </h1>
+                </div>
+                <h2 style="margin: 0; font-size: 20px; color: #e2e8f0;">
+                    ${orderData.order_name}
+                </h2>
+                <p style="margin: 8px 0 0 0; color: #cbd5e0; font-size: 14px;">
+                    Order placed by ${orderData.buyer_name || 'Valued Customer'}
+                </p>
+            </div>
+
+            <!-- Order Info -->
+            <div style="padding: 24px; background-color: #2d3748;">
+                <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                    <span style="color: #f56565; margin-right: 8px;">📍</span>
+                    <span style="color: #a0aec0; font-size: 14px;">
+                        <strong>Address:</strong> ${orderData.delivery_address}
+                    </span>
+                </div>
+
+                <div style="border: 1px solid #4a5568; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                  
+                    <div style="display: flex; justify-content: space-between; color: #a0aec0; font-size: 14px;">
+                        <span>📅 Created On:</span>
+                        <span>${currentDate}</span>
+                    </div>
+                </div>
+
+                ${orderData.notes ? `
+                <div style="background-color: #4a5568; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #68d391;">
+                    <div style="color: #68d391; font-weight: bold; margin-bottom: 8px;">📝 General Notes:</div>
+                    <div style="color: #e2e8f0; font-size: 14px; line-height: 1.5;">
+                        ${orderData.notes}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Order Items -->
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #ffffff; font-size: 20px; margin-bottom: 16px; border-bottom: 2px solid #4a5568; padding-bottom: 8px;">
+                        📦 Order Items
+                    </h3>
+                    ${itemsHtml}
+                </div>
+
+                <!-- Status -->
+                <div style="background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%); border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 24px;">
+                    <div style="color: #ffffff; font-size: 16px; font-weight: bold;">
+                        📋 Order Status: <span style="text-transform: uppercase; letter-spacing: 1px;">PENDING</span>
+                    </div>
+                    <div style="color: #fff3e0; font-size: 14px; margin-top: 4px;">
+                        Waiting for seller quotations
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div style="text-align: center; padding-top: 24px; border-top: 1px solid #4a5568; color: #a0aec0; font-size: 14px;">
+                    <p style="margin: 0 0 8px 0;">Thank you for your order! 🙏</p>
+                    <p style="margin: 0; font-size: 12px; color: #718096;">
+                        You will receive updates as sellers provide quotations for your items.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+  `;
+}
+
+// Function to generate beautiful welcome email
+function generateWelcomeEmail(userData) {
+    const { name, email, role } = userData;
+    const roleDisplayName = role.charAt(0).toUpperCase() + role.slice(1);
+    const currentYear = new Date().getFullYear();
+
+    // Role-specific content
+    const roleContent = {
+        buyer: {
+            emoji: "🛒",
+            title: "Welcome to Your Shopping Journey",
+            subtitle: "Discover fresh groceries at your doorstep",
+            benefits: [
+                "🥬 Fresh produce delivered daily",
+                "💰 Best prices from local sellers",
+                "📱 Easy ordering with just a few taps",
+                "🚚 Fast and reliable delivery",
+                "🏆 Quality guaranteed products"
+            ],
+            nextSteps: "Start browsing our marketplace and add items to your cart. Your fresh groceries are just a click away!"
+        },
+        seller: {
+            emoji: "🏪",
+            title: "Welcome to Your Business Hub",
+            subtitle: "Start selling and grow your grocery business",
+            benefits: [
+                "📈 Reach thousands of customers",
+                "💼 Easy inventory management",
+                "💵 Competitive commission rates",
+                "📊 Real-time sales analytics",
+                "🤝 Dedicated seller support"
+            ],
+            nextSteps: "Set up your store profile and start adding your products. Let's help you build a successful grocery business!"
+        }
+    };
+
+    const content = roleContent[role];
+    const benefitsList = content.benefits.map(benefit => `
+        <li style="margin: 8px 0; padding: 8px 0; color: #4a5568; font-size: 15px;">
+            ${benefit}
+        </li>
+    `).join('');
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Welcome to FreshMarket!</title>
+            <style>
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                    line-height: 1.6; 
+                    margin: 0; 
+                    padding: 0; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                }
+                .email-container { 
+                    max-width: 600px; 
+                    margin: 20px auto; 
+                    background: #ffffff; 
+                    border-radius: 16px; 
+                    overflow: hidden;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                }
+                .header {
+                    background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+                    padding: 40px 30px;
+                    text-align: center;
+                    color: white;
+                }
+                .logo {
+                    font-size: 32px;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                }
+                .header h1 {
+                    margin: 0;
+                    font-size: 28px;
+                    font-weight: 700;
+                }
+                .header p {
+                    margin: 8px 0 0 0;
+                    font-size: 16px;
+                    opacity: 0.9;
+                }
+                .content {
+                    padding: 40px 30px;
+                }
+                .welcome-section {
+                    text-align: center;
+                    margin-bottom: 40px;
+                }
+                .role-badge {
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 8px 20px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    margin-bottom: 20px;
+                }
+                .welcome-title {
+                    font-size: 32px;
+                    color: #1a202c;
+                    margin: 0 0 10px 0;
+                    font-weight: 700;
+                }
+                .welcome-subtitle {
+                    font-size: 18px;
+                    color: #4a5568;
+                    margin: 0 0 30px 0;
+                }
+                .benefits-section {
+                    background: #f8fafc;
+                    border-radius: 12px;
+                    padding: 30px;
+                    margin: 30px 0;
+                    border-left: 5px solid #22C55E;
+                }
+                .benefits-title {
+                    font-size: 20px;
+                    color: #1a202c;
+                    margin: 0 0 20px 0;
+                    font-weight: 600;
+                }
+                .benefits-list {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                }
+                .next-steps {
+                    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+                    border-radius: 12px;
+                    padding: 25px;
+                    margin: 30px 0;
+                    text-align: center;
+                }
+                .next-steps h3 {
+                    margin: 0 0 15px 0;
+                    color: #2d3436;
+                    font-size: 18px;
+                    font-weight: 600;
+                }
+                .next-steps p {
+                    margin: 0;
+                    color: #2d3436;
+                    font-size: 15px;
+                    line-height: 1.6;
+                }
+                .cta-section {
+                    text-align: center;
+                    margin: 40px 0;
+                }
+                .cta-button {
+                    display: inline-block;
+                    background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+                    color: white;
+                    padding: 15px 30px;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 16px;
+                    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+                    transition: transform 0.2s;
+                }
+                .cta-button:hover {
+                    transform: translateY(-2px);
+                }
+                .footer {
+                    background: #1a202c;
+                    color: #a0aec0;
+                    padding: 30px;
+                    text-align: center;
+                }
+                .footer h3 {
+                    color: #22C55E;
+                    margin: 0 0 15px 0;
+                    font-size: 18px;
+                }
+                .footer p {
+                    margin: 5px 0;
+                    font-size: 14px;
+                }
+                .social-links {
+                    margin: 20px 0;
+                }
+                .social-links a {
+                    color: #22C55E;
+                    text-decoration: none;
+                    margin: 0 10px;
+                    font-size: 16px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <!-- Header -->
+                <div class="header">
+                    <div class="logo">
+                        🛒 FreshMarket
+                    </div>
+                    <h1>Welcome Aboard!</h1>
+                    <p>Your journey to fresh groceries starts here</p>
+                </div>
+
+                <!-- Content -->
+                <div class="content">
+                    <!-- Welcome Section -->
+                    <div class="welcome-section">
+                        <div class="role-badge">
+                            ${content.emoji} ${roleDisplayName} Account
+                        </div>
+                        <h2 class="welcome-title">
+                            Hello ${name}! 👋
+                        </h2>
+                        <p class="welcome-subtitle">
+                            ${content.subtitle}
+                        </p>
+                        <p style="color: #4a5568; font-size: 16px; margin: 20px 0;">
+                            We're thrilled to have you join our growing community of grocery enthusiasts. 
+                            Your account has been successfully created and verified!
+                        </p>
+                    </div>
+
+                    <!-- Benefits Section -->
+                    <div class="benefits-section">
+                        <h3 class="benefits-title">🎉 What you can enjoy as a ${roleDisplayName}:</h3>
+                        <ul class="benefits-list">
+                            ${benefitsList}
+                        </ul>
+                    </div>
+
+                    <!-- Next Steps -->
+                    <div class="next-steps">
+                        <h3>🚀 Ready to Get Started?</h3>
+                        <p>${content.nextSteps}</p>
+                    </div>
+
+                    <!-- CTA Section -->
+                    <div class="cta-section">
+                        <a href="#" class="cta-button">
+                            ${role === 'buyer' ? '🛒 Start Shopping Now' : '🏪 Set Up Your Store'}
+                        </a>
+                    </div>
+
+                    <!-- Tips Section -->
+                    <div style="background: #e6fffa; border-radius: 12px; padding: 25px; margin: 30px 0; border-left: 5px solid #00d4aa;">
+                        <h3 style="color: #234e52; margin: 0 0 15px 0; font-size: 18px;">💡 Pro Tips:</h3>
+                        ${role === 'buyer' ? `
+                            <ul style="color: #234e52; margin: 0; padding-left: 20px;">
+                                <li>Create your wishlist to save favorite items</li>
+                                <li>Set up delivery preferences for faster checkout</li>
+                                <li>Follow your favorite sellers for updates</li>
+                                <li>Check daily deals for amazing discounts</li>
+                            </ul>
+                        ` : `
+                            <ul style="color: #234e52; margin: 0; padding-left: 20px;">
+                                <li>Upload high-quality product photos</li>
+                                <li>Write detailed product descriptions</li>
+                                <li>Keep your inventory updated regularly</li>
+                                <li>Respond quickly to customer inquiries</li>
+                            </ul>
+                        `}
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="footer">
+                    <h3>🛒 FreshMarket</h3>
+                    <p>Fresh groceries, delivered with care</p>
+                    <p>📧 ${email} | 📱 Download our mobile app</p>
+                    
+                    <div class="social-links">
+                        <a href="#">Facebook</a> |
+                        <a href="#">Instagram</a> |
+                        <a href="#">Twitter</a>
+                    </div>
+                    
+                    <p style="font-size: 12px; margin-top: 20px; opacity: 0.7;">
+                        © ${currentYear} FreshMarket. All rights reserved.<br>
+                        Need help? Contact us anytime at support@freshmarket.com
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
+
+function getOtpHtmlTemplate(otp, role) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Password Reset OTP - FreshMarket</title>
+  <style>
+    :root {
+      --green-bg: #f3fdf5;
+      --green-border: #d1e7d3;
+      --green-primary: #4b9560;
+      --green-secondary: #a5c9aa;
+      --yellow-warning: #fef9c3;
+      --warning-text: #7c6f0b;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--green-bg);
+      margin: 0;
+      padding: 20px;
+      color: #2f2f2f;
+    }
+    .container {
+      max-width: 500px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      padding: 32px;
+      border-radius: 10px;
+      border: 1px solid var(--green-border);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      max-width: 150px;
+      height: auto;
+    }
+    h2 {
+      text-align: center;
+      color: var(--green-primary);
+      font-size: 22px;
+      margin-bottom: 18px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 12px 0;
+    }
+    .otp-box {
+      background: var(--green-bg);
+      border: 1px dashed var(--green-secondary);
+      color: var(--green-primary);
+      font-size: 28px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-align: center;
+      padding: 16px;
+      margin: 24px 0;
+      border-radius: 8px;
+    }
+    .expiry-text {
+      text-align: center;
+      font-size: 13px;
+      color: #947f19;
+      margin-top: -10px;
+      margin-bottom: 20px;
+    }
+    .warning {
+      background-color: var(--yellow-warning);
+      border-left: 4px solid #fde047;
+      padding: 14px;
+      font-size: 14px;
+      border-radius: 6px;
+      color: var(--warning-text);
+      margin-top: 20px;
+    }
+    .footer-text {
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="/uploads/logo.jpg" alt="FreshMarket Logo" />
+    </div>
+    <h2>Password Reset Request</h2>
+    <p>Hello,</p>
+    <p>You have requested to reset your password for your <strong>${role}</strong> account. Please use the One-Time Password (OTP) below:</p>
+    <div class="otp-box">${otp}</div>
+    <p class="expiry-text">This OTP is valid for the next <strong>10 minutes</strong>.</p>
+    <div class="warning">
+      <strong>Security Notice:</strong> If you did not request this password reset, please ignore this message and ensure your account is secure.
+    </div>
+    <p class="footer-text">Thank you for using FreshMarket!</p>
+  </div>
+</body>
+</html>`;
+}
+
+
+function generateOrderCompletionEmail(orderDetails, recipientType) {
+    const {
+        order_name,
+        order_id,
+        delivery_address,
+        total_amount,
+        quotationItems,
+        quotationInfo,
+        buyer_name,
+        seller_name,
+        buyer_email,
+        seller_email
+    } = orderDetails;
+
+    const recipientName = recipientType === 'buyer' ? buyer_name : seller_name;
+    const otherPartyName = recipientType === 'buyer' ? seller_name : buyer_name;
+    const title = recipientType === 'buyer' ? 'Order Delivered Successfully!' : 'Order Completed Successfully!';
+    const message = recipientType === 'buyer'
+        ? 'Your order has been successfully delivered and completed.'
+        : 'You have successfully completed the order delivery.';
+
+    // Only buyer can see order name, seller sees order ID
+    const orderDisplayName = recipientType === 'buyer' ? order_name : `Order #${order_id}`;
+    const orderLabel = recipientType === 'buyer' ? 'Order Name' : 'Order ID';
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Order Completion</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          background-color: #f8f9fa;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: #ffffff;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 30px 20px;
+          text-align: center;
+        }
+        .header h1 {
+          font-size: 28px;
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
+        .header p {
+          font-size: 16px;
+          opacity: 0.9;
+        }
+        .content {
+          padding: 30px 25px;
+        }
+        .greeting {
+          font-size: 18px;
+          color: #2c3e50;
+          margin-bottom: 20px;
+        }
+        .order-info {
+          background-color: #f8f9fa;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          border-left: 4px solid #667eea;
+        }
+        .order-info h3 {
+          color: #2c3e50;
+          margin-bottom: 15px;
+          font-size: 18px;
+        }
+        .info-row {
+          display: flex;
+          margin-bottom: 12px;
+          align-items: flex-start;
+        }
+        .info-icon {
+          font-size: 18px;
+          margin-right: 12px;
+          min-width: 25px;
+          color: #667eea;
+        }
+        .info-text {
+          flex: 1;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .info-label {
+          font-weight: 600;
+          color: #2c3e50;
+        }
+        .total-amount {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 15px 20px;
+          border-radius: 8px;
+          text-align: center;
+          margin: 20px 0;
+        }
+        .total-amount h3 {
+          font-size: 24px;
+          margin: 0;
+        }
+        .items-section {
+          margin: 25px 0;
+        }
+        .items-title {
+          font-size: 20px;
+          color: #2c3e50;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+        }
+        .items-title::before {
+          content: "📦";
+          margin-right: 10px;
+          font-size: 24px;
+        }
+        .item-card {
+          background-color: #fff;
+          border: 1px solid #e0e6ed;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .item-name {
+          font-size: 18px;
+          font-weight: 600;
+          color: #2c3e50;
+          margin-bottom: 8px;
+        }
+        .item-description {
+          color: #6c757d;
+          font-size: 14px;
+          margin-bottom: 12px;
+        }
+        .quantity-list {
+          list-style: none;
+          padding-left: 0;
+        }
+        .quantity-item {
+          background-color: #f8f9fa;
+          padding: 8px 12px;
+          margin: 5px 0;
+          border-radius: 4px;
+          font-size: 14px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .quantity-details {
+          flex: 1;
+        }
+        .quantity-price {
+          font-weight: 600;
+          color: #28a745;
+        }
+        .item-note {
+          margin-top: 12px;
+          padding: 10px;
+          background-color: #e8f4f8;
+          border-radius: 4px;
+          font-size: 13px;
+          color: #0c5460;
+        }
+        .item-note::before {
+          content: "📝 Note: ";
+          font-weight: 600;
+        }
+        .footer {
+          background-color: #2c3e50;
+          color: white;
+          padding: 25px;
+          text-align: center;
+        }
+        .footer p {
+          margin-bottom: 10px;
+        }
+        .footer a {
+          color: #667eea;
+          text-decoration: none;
+        }
+        .success-badge {
+          display: inline-block;
+          background-color: #28a745;
+          color: white;
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 600;
+          margin: 15px 0;
+        }
+        @media (max-width: 600px) {
+          .container {
+            margin: 10px;
+            border-radius: 8px;
+          }
+          .header {
+            padding: 20px 15px;
+          }
+          .content {
+            padding: 20px 15px;
+          }
+          .info-row {
+            flex-direction: column;
+          }
+          .info-icon {
+            margin-bottom: 5px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>✅ ${title}</h1>
+          <p>${message}</p>
+        </div>
+        
+        <div class="content">
+          <div class="greeting">
+            Hello <strong>${recipientName}</strong>,
+          </div>
+          
+          <div class="success-badge">
+            Order Successfully Completed
+          </div>
+          
+          <p>We're pleased to inform you that your order has been successfully completed. Here are the details:</p>
+          
+          <div class="order-info">
+            <h3>📋 Order Information</h3>
+            <div class="info-row">
+              <span class="info-icon">🛍️</span>
+              <div class="info-text">
+                <span class="info-label">${orderLabel}:</span><br>
+                ${orderDisplayName}
+              </div>
+            </div>
+            <div class="info-row">
+              <span class="info-icon">📍</span>
+              <div class="info-text">
+                <span class="info-label">Delivery Address:</span><br>
+                ${delivery_address}
+              </div>
+            </div>
+            <div class="info-row">
+              <span class="info-icon">${recipientType === 'buyer' ? '👨‍💼' : '👤'}</span>
+              <div class="info-text">
+                <span class="info-label">${recipientType === 'buyer' ? 'Seller' : 'Buyer'}:</span><br>
+                ${otherPartyName}
+              </div>
+            </div>
+          </div>
+          
+          ${quotationInfo ? `
+          <div class="order-info">
+            <h3>📄 Quotation Details</h3>
+            </div>
+            ${quotationInfo.discount > 0 ? `
+            <div class="info-row">
+              <span class="info-icon">🎯</span>
+              <div class="info-text">
+                <span class="info-label">Discount Applied:</span><br>
+                ₹${parseFloat(quotationInfo.discount).toFixed(2)}
+              </div>
+            </div>
+            ` : ''}
+            ${quotationInfo.quotation_notes ? `
+            <div class="info-row">
+              <span class="info-icon">📝</span>
+              <div class="info-text">
+                <span class="info-label">Seller Notes:</span><br>
+                ${quotationInfo.quotation_notes}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          <div class="total-amount">
+            <h3>💰 Total Order Value: ₹${parseFloat(total_amount).toFixed(2)}</h3>
+          </div>
+          
+          <div class="items-section">
+            <div class="items-title">
+              Quotation Items
+            </div>
+            
+            ${quotationItems.map(item => `
+              <div class="item-card">
+                <div class="item-name">${item.product_name || 'Product'}</div>
+                <div class="item-description">${item.product_description || 'Premium quality product'}</div>
+                
+                <ul class="quantity-list">
+                  ${item.quantities.map(qty => `
+                    <li class="quantity-item">
+                      <div class="quantity-details">
+                        <strong>${qty.quantity}</strong> (${qty.unit_type}) — Qty: ${qty.available_quantity}
+                        ${!qty.is_available ? '<span style="color: #dc3545; font-size: 12px; margin-left: 8px;">⚠️ Limited Stock</span>' : ''}
+                      </div>
+                      <div class="quantity-price">₹${parseFloat(qty.total_price).toFixed(2)}</div>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            `).join('')}
+          </div>
+          
+          <p style="margin-top: 30px; color: #6c757d; font-size: 14px;">
+            Thank you for your business! If you have any questions or concerns, please don't hesitate to contact our support team.
+          </p>
+        </div>
+        
+        <div class="footer">
+          <p><strong>Your Marketplace Team</strong></p>
+          <p>📧 Support: <a href="mailto:support@yourmarketplace.com">support@yourmarketplace.com</a></p>
+          <p>🌐 Website: <a href="https://yourmarketplace.com">www.yourmarketplace.com</a></p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Add this function to calculate distance between two coordinates
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const d = R * c; // Distance in km
+    return Math.round(d * 100) / 100; // Round to 2 decimal places
+}
+
+function deg2rad(deg) {
+    return deg * (Math.PI/180);
+}
+
+// Function to get quotation match summary for email
+async function getQuotationMatchSummary(orderId, quotationId) {
+    try {
+        // Get all order items
+        const [orderItems] = await dbPool.execute(
+            'SELECT id, requested_quantity FROM order_items WHERE order_id = ?',
+            [orderId]
+        );
+        const totalOrderItems = orderItems.length;
+
+        if (totalOrderItems === 0) {
+            return { fullMatch: 0, partialMatch: 0, missing: 0, status: '❌ No items' };
+        }
+
+        // Get quotation items for this specific quotation
+        const [quotationItems] = await dbPool.execute(
+            `SELECT qi.*, oi.requested_quantity
+             FROM quotation_items qi
+                      JOIN order_items oi ON qi.order_item_id = oi.id
+             WHERE qi.quotation_id = ?`,
+            [quotationId]
+        );
+
+        let fullMatch = 0;
+        let partialMatch = 0;
+        let missing = 0;
+
+        const matchedOrderItemIds = new Set();
+
+        for (const item of quotationItems) {
+            matchedOrderItemIds.add(item.order_item_id);
+
+            if (item.available_quantity >= item.requested_quantity) {
+                fullMatch++;
+            } else if (item.available_quantity > 0) {
+                partialMatch++;
+            } else {
+                missing++;
+            }
+        }
+
+        const unmatchedCount = totalOrderItems - matchedOrderItemIds.size;
+        missing += unmatchedCount;
+
+        let status = '❌ Missing items';
+        if (missing === 0 && partialMatch === 0) {
+            status = '✅ Full match';
+        } else if (missing === 0) {
+            status = '⚠️ Partial match';
+        }
+
+        return {
+            fullMatch,
+            partialMatch,
+            missing,
+            status,
+            totalItems: totalOrderItems
+        };
+    } catch (error) {
+        console.error('Error getting quotation match summary:', error);
+        return { fullMatch: 0, partialMatch: 0, missing: 0, status: '❌ Error', totalItems: 0 };
+    }
+}
+
+// Function to create professional quotation email HTML
+function createQuotationEmailHTML(data) {
+    const {
+        buyerName,
+        sellerName,
+        orderName,
+        totalAmount,
+        distance,
+        matchSummary,
+        loginUrl
+    } = data;
+
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Quotation Received</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f4f4f4;
+            }
+            .container {
+                max-width: 600px;
+                margin: 20px auto;
+                background: white;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            }
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+            }
+            .header h1 {
+                font-size: 28px;
+                margin-bottom: 10px;
+                font-weight: 300;
+            }
+            .header p {
+                font-size: 16px;
+                opacity: 0.9;
+            }
+            .content {
+                padding: 40px 30px;
+            }
+            .greeting {
+                font-size: 18px;
+                margin-bottom: 25px;
+                color: #2c3e50;
+            }
+            .order-info {
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 25px;
+                margin: 25px 0;
+                border-left: 4px solid #667eea;
+            }
+            .order-info h3 {
+                color: #2c3e50;
+                margin-bottom: 15px;
+                font-size: 20px;
+            }
+            .info-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 0;
+                border-bottom: 1px solid #e9ecef;
+            }
+            .info-row:last-child {
+                border-bottom: none;
+            }
+            .info-label {
+                font-weight: 600;
+                color: #495057;
+                flex: 1;
+            }
+            .info-value {
+                font-weight: 500;
+                color: #2c3e50;
+                flex: 2;
+                text-align: right;
+            }
+            .price-highlight {
+                font-size: 24px;
+                color: #28a745;
+                font-weight: bold;
+            }
+            .status-badge {
+                display: inline-block;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: 600;
+                text-align: center;
+            }
+            .status-full {
+                background: #d4edda;
+                color: #155724;
+            }
+            .status-partial {
+                background: #fff3cd;
+                color: #856404;
+            }
+            .status-missing {
+                background: #f8d7da;
+                color: #721c24;
+            }
+            .match-details {
+                background: #e9ecef;
+                border-radius: 6px;
+                padding: 15px;
+                margin-top: 10px;
+            }
+            .match-item {
+                display: inline-block;
+                margin-right: 20px;
+                margin-bottom: 5px;
+            }
+            .match-number {
+                font-weight: bold;
+                color: #495057;
+            }
+            .cta-section {
+                text-align: center;
+                margin: 35px 0;
+                padding: 25px;
+                background: #f8f9fa;
+                border-radius: 8px;
+            }
+            .cta-button {
+                display: inline-block;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-decoration: none;
+                padding: 15px 35px;
+                border-radius: 30px;
+                font-weight: 600;
+                font-size: 16px;
+                transition: transform 0.2s ease;
+            }
+            .cta-button:hover {
+                transform: translateY(-2px);
+            }
+            .footer {
+                background: #2c3e50;
+                color: white;
+                text-align: center;
+                padding: 25px;
+                font-size: 14px;
+            }
+            .footer p {
+                margin-bottom: 10px;
+            }
+            .footer a {
+                color: #667eea;
+                text-decoration: none;
+            }
+            @media (max-width: 600px) {
+                .container {
+                    margin: 10px;
+                    border-radius: 0;
+                }
+                .header, .content, .footer {
+                    padding: 20px;
+                }
+                .info-row {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .info-value {
+                    text-align: left;
+                    margin-top: 5px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1> New Quotation Received!</h1>
+                <p>A seller has submitted a quotation for your order</p>
+            </div>
+            
+            <div class="content">
+                <div class="greeting">
+                    Hello <strong>${buyerName}</strong>,
+                </div>
+                
+                <p>Great news! <strong>${sellerName}</strong> has submitted a quotation for your order. Here are the details:</p>
+                
+                <div class="order-info">
+                    <h3>📋 Order Details</h3>
+                    <div class="info-row">
+                        <span class="info-label">Order Name:</span>
+                        <span class="info-value"><strong>${orderName}</strong></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Seller:</span>
+                        <span class="info-value">${sellerName}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Total Price:</span>
+                        <span class="info-value price-highlight">₹${totalAmount.toLocaleString()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Distance:</span>
+                        <span class="info-value">${distance} km away</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Match Status:</span>
+                        <span class="info-value">
+                            <span class="status-badge ${matchSummary.status.includes('Full') ? 'status-full' : matchSummary.status.includes('Partial') ? 'status-partial' : 'status-missing'}">
+                                ${matchSummary.status}
+                            </span>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="match-details">
+                    <strong>📊 Item Matching Breakdown:</strong><br>
+                    <div style="margin-top: 10px;">
+                        <span class="match-item">
+                            <span class="match-number">${matchSummary.fullMatch}</span> Complete matches
+                        </span>
+                        <span class="match-item">
+                            <span class="match-number">${matchSummary.partialMatch}</span> Partial matches
+                        </span>
+                        <span class="match-item">
+                            <span class="match-number">${matchSummary.missing}</span> Missing items
+                        </span>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 14px; color: #6c757d;">
+                        Total Items: ${matchSummary.totalItems}
+                    </div>
+                </div>
+                
+                <div class="cta-section">
+                    <p style="margin-bottom: 20px; font-size: 16px;">
+                        Ready to review this quotation and compare with others?
+                    </p>
+                    <a href="${loginUrl}" class="cta-button">
+                        🔍 Review Quotation
+                    </a>
+                </div>
+                
+                <p style="color: #6c757d; font-size: 14px; line-height: 1.5;">
+                    <strong>💡 Next Steps:</strong><br>
+                    • Log in to your account to view detailed quotation<br>
+                    • Compare prices and delivery options<br>
+                    • Accept the best quotation for your needs<br>
+                    • Start chatting with the seller if you have questions
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p><strong>Thank you for using our platform!</strong></p>
+                <p>If you have any questions, please don't hesitate to contact our support team.</p>
+                <p style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
+                    This is an automated email. Please do not reply directly to this message.
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+}
+async function generateAcceptedQuotationEmail(sellerName, orderId, deliveryAddress) {
+    const loginUrl = 'https://grocerybid.akshitdhake.com/seller/login'; // Your seller login URL
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Quotation Accepted!</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }
+                .header {
+                    background-color: #4CAF50;
+                    color: #ffffff;
+                    padding: 10px 0;
+                    text-align: center;
+                    border-top-left-radius: 8px;
+                    border-top-right-radius: 8px;
+                }
+                .content {
+                    padding: 20px;
+                }
+                .button-container {
+                    text-align: center;
+                    margin-top: 20px;
+                }
+                .button {
+                    display: inline-block;
+                    background-color: #007bff;
+                    color: #ffffff !important; /* Important to override default link color */
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    text-decoration: none;
+                    font-weight: bold;
+                }
+                .footer {
+                    text-align: center;
+                    margin-top: 30px;
+                    font-size: 0.8em;
+                    color: #777;
+                }
+                ul {
+                    list-style-type: none;
+                    padding: 0;
+                }
+                ul li {
+                    margin-bottom: 10px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2>Congratulations, ${sellerName}!</h2>
+                </div>
+                <div class="content">
+                    <p>Great news! Your quotation for Order ID <strong>#${orderId}</strong> has been accepted by the buyer.</p>
+                    <p>Here are the details for your reference:</p>
+                    <ul>
+                        <li><strong>Order ID:</strong> #${orderId}</li>
+                        <li><strong>Delivery Address:</strong> ${deliveryAddress}</li>
+                    </ul>
+                    <p>Please log in to your seller portal to view the order details and proceed further:</p>
+                    <div class="button-container">
+                        <a href="${loginUrl}" class="button">Log In to Seller Portal</a>
+                    </div>
+                    <p>Thank you for using GroceryBid!</p>
+                    <p>Best regards,<br>The GroceryBid Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} GroceryBid. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+}
+// Function to send quotation notification email
+async function sendQuotationNotificationEmail(orderId, quotationId, sellerId) {
+    try {
+        // Get order details with buyer information
+        const [orderDetails] = await dbPool.execute(`
+            SELECT o.*, u.name as buyer_name, u.email as buyer_email
+            FROM orders o
+            JOIN users u ON o.buyer_id = u.id
+            WHERE o.id = ?
+        `, [orderId]);
+
+        if (orderDetails.length === 0) {
+            console.error('Order not found for email notification');
+            return false;
+        }
+
+        const order = orderDetails[0];
+
+        // Get seller details
+        const [sellerDetails] = await dbPool.execute(`
+            SELECT name, latitude, longitude FROM users WHERE id = ?
+        `, [sellerId]);
+
+        if (sellerDetails.length === 0) {
+            console.error('Seller not found for email notification');
+            return false;
+        }
+
+        const seller = sellerDetails[0];
+
+        // Get quotation details
+        const [quotationDetails] = await dbPool.execute(`
+            SELECT total_amount FROM quotations WHERE id = ?
+        `, [quotationId]);
+
+        if (quotationDetails.length === 0) {
+            console.error('Quotation not found for email notification');
+            return false;
+        }
+
+        const quotation = quotationDetails[0];
+
+        // Calculate distance between buyer and seller
+        let distance = 'N/A';
+        if (order.delivery_latitude && order.delivery_longitude && seller.latitude && seller.longitude) {
+            distance = calculateDistance(
+                order.delivery_latitude,
+                order.delivery_longitude,
+                seller.latitude,
+                seller.longitude
+            );
+        }
+
+        // Get match summary
+        const matchSummary = await getQuotationMatchSummary(orderId, quotationId);
+
+        // Prepare email data
+        const emailData = {
+            buyerName: order.buyer_name,
+            sellerName: seller.name,
+            orderName: order.order_name,
+            totalAmount: parseFloat(quotation.total_amount),
+            distance: distance,
+            matchSummary: matchSummary,
+            loginUrl: 'http://grocerybid.akshitdhake.com/buyer/login'
+        };
+
+        // Create email HTML
+        const emailHTML = createQuotationEmailHTML(emailData);
+
+        // Send email
+        const emailSent = await sendEmail(
+            order.buyer_email,
+            `🎉 New Quotation for "${order.order_name}" - Review Now!`,
+            emailHTML
+        );
+
+        if (emailSent) {
+            console.log(`Quotation notification email sent successfully to ${order.buyer_email}`);
+            return true;
+        } else {
+            console.error('Failed to send quotation notification email');
+            return false;
+        }
+
+    } catch (error) {
+        console.error('Error sending quotation notification email:', error);
+        return false;
+    }
+}
+
+
+
+
+
+
+
+
 // ========================================
 // SECTION 5: AUTHENTICATION ROUTES
 // ========================================
@@ -370,33 +1820,27 @@ const chatUpload = multer({
 app.post('/api/auth/login', [
     body('email').isEmail().normalizeEmail(),
     body('password').notEmpty().isLength({ min: 1 }),
-    body('role').isIn(['seller', 'buyer','admin']).withMessage('Role must be either seller or buyer')
+    body('role').isIn(['seller', 'buyer', 'admin']).withMessage('Role must be either seller, buyer, or admin')
 ], handleValidationErrors, async (req, res) => {
     try {
         const { email, password, role } = req.body;
 
         console.log(`Login attempt for email: ${email} with role: ${role}`);
 
-        // Find user with specific email AND role
+        // Find user with specific email AND role (don't filter is_active here)
         const [users] = await db.execute(
-            'SELECT * FROM users WHERE email = ? AND role = ? AND is_active = TRUE',
+            'SELECT * FROM users WHERE email = ? AND role = ?',
             [email, role]
         );
 
         if (users.length === 0) {
-            console.log(`Login failed: No active user found for ${email} with role ${role}`);
+            console.log(`Login failed: No user found for ${email} with role ${role}`);
             return res.status(401).json(formatResponse(false, 'Invalid credentials'));
         }
 
         const user = users[0];
 
-        // Verify password with migration support
-        const isPasswordValid = await verifyPasswordWithMigration(password, user.password);
-
-        if (!isPasswordValid) {
-            console.log(`Login failed: Invalid password for ${email} with role ${role}`);
-            return res.status(401).json(formatResponse(false, 'Invalid credentials'));
-        }
+        // Check if user is inactiv
 
         // Check if user is suspended
         if (user.is_suspended) {
@@ -404,7 +1848,15 @@ app.post('/api/auth/login', [
             return res.status(403).json(formatResponse(false, 'Account suspended. Contact support.'));
         }
 
-        // OPTIONAL: Upgrade old MD5 passwords to bcrypt on successful login
+        // Verify password (supporting MD5 → bcrypt migration)
+        const isPasswordValid = await verifyPasswordWithMigration(password, user.password);
+
+        if (!isPasswordValid) {
+            console.log(`Login failed: Invalid password for ${email} with role ${role}`);
+            return res.status(401).json(formatResponse(false, 'Invalid credentials'));
+        }
+
+        // OPTIONAL: Upgrade old MD5 password to bcrypt
         if (user.password.length === 32 && /^[a-f0-9]+$/i.test(user.password)) {
             console.log(`Upgrading password hash for user: ${email} with role: ${role}`);
             try {
@@ -413,22 +1865,21 @@ app.post('/api/auth/login', [
                     'UPDATE users SET password = ? WHERE id = ?',
                     [newHash, user.id]
                 );
-                console.log(`Password hash upgraded successfully for ${email} with role: ${role}`);
+                console.log(`Password hash upgraded successfully for ${email}`);
             } catch (upgradeError) {
                 console.error('Password upgrade failed:', upgradeError);
-                // Don't fail login if upgrade fails
             }
         }
 
-        // Generate token
+        // Generate JWT
         const token = generateToken({
             userId: user.id,
             email: user.email,
             role: user.role
         });
 
-        // Create session
-        const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        // Save session in DB
+        const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
         await db.execute(
             'INSERT INTO user_sessions (user_id, token_hash, expires_at, ip_address) VALUES (?, ?, ?, ?)',
             [
@@ -441,6 +1892,7 @@ app.post('/api/auth/login', [
 
         console.log(`Login successful for ${email} with role: ${role}`);
 
+        // Respond with token and user details
         res.status(200).json(formatResponse(true, 'Login successful', {
             token,
             user: {
@@ -498,7 +1950,7 @@ app.post('/api/auth/register', [
 
         const emailSent = await sendEmail(
             email,
-            'Registration OTP - Grocery Delivery',
+            'Registration OTP - FreshMarket',
             `<html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -565,8 +2017,7 @@ app.post('/api/auth/register', [
     }
 });
 
-
-// VERIFY OTP: Step 2 - Complete Registration (Updated for multiple roles)
+// Updated OTP Verification API with Welcome Email
 app.post('/api/auth/verify-otp', [
     body('email').isEmail().withMessage('Valid email required'),
     body('otp').isLength({ min: 6, max: 6 }).isNumeric().withMessage('6-digit OTP required'),
@@ -658,6 +2109,27 @@ app.post('/api/auth/verify-otp', [
                 [result.insertId, crypto.createHash('sha256').update(token).digest('hex'), new Date(Date.now() + 24 * 60 * 60 * 1000)]
             );
 
+            // Send Welcome Email
+            const welcomeEmailData = {
+                name: tempUserData.name,
+                email: tempUserData.email,
+                role: tempUserData.role
+            };
+
+            const welcomeEmailSubject = `🎉 Welcome to FreshMarket, ${tempUserData.name}!`;
+            const welcomeEmailHtml = generateWelcomeEmail(welcomeEmailData);
+
+            // Send welcome email asynchronously (don't block response)
+            sendEmail(tempUserData.email, welcomeEmailSubject, welcomeEmailHtml).then(emailSent => {
+                if (emailSent) {
+                    console.log(`✅ Welcome email sent to ${tempUserData.email}`);
+                } else {
+                    console.error(`❌ Failed to send welcome email to ${tempUserData.email}`);
+                }
+            }).catch(error => {
+                console.error('Welcome email error:', error);
+            });
+
             return res.status(201).json(formatResponse(true, `${role} registration completed successfully`, {
                 token,
                 user: {
@@ -667,7 +2139,8 @@ app.post('/api/auth/verify-otp', [
                     phone: tempUserData.phone,
                     role: tempUserData.role,
                     is_verified: true
-                }
+                },
+                welcome_email_sent: true
             }));
         } else {
             return res.status(200).json(formatResponse(true, 'OTP verified successfully'));
@@ -681,163 +2154,47 @@ app.post('/api/auth/verify-otp', [
 
 
 
-
 // Reset password (Updated to handle multiple roles)
 // Add this new endpoint to send OTP for password reset
 app.post('/api/auth/send-password-reset-otp', [
     body('email').isEmail().normalizeEmail(),
-    body('role').isIn(['buyer', 'seller','admin']).withMessage('Role must be buyer or seller')
+    body('role').isIn(['buyer', 'seller', 'admin']).withMessage('Role must be buyer, seller or admin')
 ], handleValidationErrors, async (req, res) => {
     try {
         const { email, role } = req.body;
 
-        // Check if user exists with specified role
+        // Find user by email and role (without filtering by is_active or is_suspended)
         const [users] = await db.execute(
-            `SELECT id FROM users 
-       WHERE email = ? 
-         AND role = ? 
-         AND is_active = 1 
-         AND is_suspended = 0`,
+            `SELECT id, is_active, is_suspended FROM users WHERE email = ? AND role = ?`,
             [email, role]
         );
+
         if (users.length === 0) {
             return res.status(404).json(formatResponse(false, `No ${role} account found for this email`));
         }
 
+        const user = users[0];
+
+
+        if (user.is_suspended) {
+            return res.status(403).json(formatResponse(false, 'Your account is suspended. Contact support.'));
+        }
+
         // Generate OTP and set expiry
         const otp = generateOTP();
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
-        // Insert OTP into database
+        // Store OTP in database
         await db.execute(
             'INSERT INTO otp_verifications (email, otp, type, expires_at) VALUES (?, ?, ?, ?)',
             [email, otp, 'password_reset', otpExpiry]
         );
 
-        // Send OTP email
+        // Send OTP via email
         const emailSent = await sendEmail(
             email,
             'Password Reset OTP - FreshMarket',
-            `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Password Reset OTP - FreshMarket</title>
-    <style>
-        :root {
-            --green-bg: #f3fdf5;
-            --green-border: #d1e7d3;
-            --green-primary: #4b9560;
-            --green-secondary: #a5c9aa;
-            --yellow-warning: #fef9c3;
-            --warning-text: #7c6f0b;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--green-bg);
-            margin: 0;
-            padding: 20px;
-            color: #2f2f2f;
-        }
-
-        .container {
-            max-width: 500px;
-            margin: 40px auto;
-            background-color: #ffffff;
-            padding: 32px;
-            border-radius: 10px;
-            border: 1px solid var(--green-border);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-        }
-
-        .logo {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .logo img {
-            max-width: 150px;
-            height: auto;
-        }
-
-        h2 {
-            text-align: center;
-            color: var(--green-primary);
-            font-size: 22px;
-            margin-bottom: 18px;
-        }
-
-        p {
-            font-size: 15px;
-            line-height: 1.6;
-            margin: 12px 0;
-        }
-
-        .otp-box {
-            background: var(--green-bg);
-            border: 1px dashed var(--green-secondary);
-            color: var(--green-primary);
-            font-size: 28px;
-            font-weight: bold;
-            letter-spacing: 4px;
-            text-align: center;
-            padding: 16px;
-            margin: 24px 0;
-            border-radius: 8px;
-        }
-
-        .expiry-text {
-            text-align: center;
-            font-size: 13px;
-            color: #947f19;
-            margin-top: -10px;
-            margin-bottom: 20px;
-        }
-
-        .warning {
-            background-color: var(--yellow-warning);
-            border-left: 4px solid #fde047;
-            padding: 14px;
-            font-size: 14px;
-            border-radius: 6px;
-            color: var(--warning-text);
-            margin-top: 20px;
-        }
-
-        .footer-text {
-            text-align: center;
-            font-size: 12px;
-            color: #777;
-            margin-top: 40px;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="logo">
-        <img src="./email.png" alt="FreshMarket Logo" />
-    </div>
-
-    <h2>Password Reset Request</h2>
-
-    <p>Hello,</p>
-    <p>You have requested to reset your password for your <strong>${role}</strong> account. Please use the One-Time Password (OTP) below:</p>
-
-    <div class="otp-box">${otp}</div>
-
-    <p class="expiry-text">This OTP is valid for the next <strong>10 minutes</strong>.</p>
-
-    <div class="warning">
-        <strong>Security Notice:</strong> If you did not request this password reset, please ignore this message and ensure your account is secure.
-    </div>
-
-    <p class="footer-text">Thank you for using FreshMarket!</p>
-</div>
-</body>
-</html>
-`
+            getOtpHtmlTemplate(otp, role) // Function below
         );
 
         if (!emailSent) {
@@ -845,6 +2202,7 @@ app.post('/api/auth/send-password-reset-otp', [
         }
 
         res.status(200).json(formatResponse(true, `Password reset OTP sent to your email for ${role} account`));
+
     } catch (error) {
         console.error('Send password reset OTP error:', error);
         res.status(500).json(formatResponse(false, 'Failed to send password reset OTP', null, error.message));
@@ -1026,6 +2384,31 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
 // ========================================
 
 // GET /api/products/categories - List all categories
+
+
+
+app.get('/api/landing/categories', async (req, res) => {
+    try {
+        const [categories] = await dbPool.execute(`
+      SELECT 
+        c.id,
+        c.name,
+        c.icon,
+        COUNT(p.id) AS product_count
+      FROM categories c
+      LEFT JOIN products p ON p.category_id = c.id AND p.is_active = TRUE
+      WHERE c.is_active = TRUE
+      GROUP BY c.id, c.name
+      ORDER BY c.name
+    `);
+
+        sendResponse(res, 200, true, 'Categories with product counts retrieved successfully', categories);
+    } catch (error) {
+        console.error('Get categories with product counts error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve categories');
+    }
+});
+
 app.get('/api/products/categories', async (req, res) => {
     try {
         const [categories] = await dbPool.execute(
@@ -1590,6 +2973,8 @@ app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize([
             return sendResponse(res, 400, false, 'Cannot accept quotation for order in current status');
         }
 
+        const order = orders[0]; // Get the order details
+
         // Verify quotation exists and belongs to this order
         const [quotations] = await connection.execute(
             'SELECT * FROM quotations WHERE id = ? AND order_id = ? AND status = ?',
@@ -1601,6 +2986,18 @@ app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize([
         }
 
         const quotation = quotations[0];
+
+        // Get seller details for the email
+        const [sellers] = await connection.execute(
+            'SELECT name, email FROM users WHERE id = ? AND role = "seller"',
+            [quotation.seller_id]
+        );
+
+        if (sellers.length === 0) {
+            // This should ideally not happen if data integrity is maintained, but good to check
+            return sendResponse(res, 404, false, 'Associated seller not found');
+        }
+        const seller = sellers[0];
 
         // Update order with accepted seller and final total amount
         await connection.execute(
@@ -1629,7 +3026,7 @@ app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize([
         for (const quote of otherQuotations) {
             // Close chat with rejected sellers
             await connection.execute(
-                `UPDATE order_chat_participants 
+                `UPDATE order_chat_participants
                  SET chat_status = 'closed', closed_at = NOW()
                  WHERE order_id = ? AND seller_id = ? AND chat_status = 'active'`,
                 [orderId, quote.seller_id]
@@ -1637,6 +3034,16 @@ app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize([
         }
 
         await connection.commit();
+
+        // Send email to the accepted seller
+        const emailSubject = `Your Quotation for Order #${orderId} has been Accepted!`;
+        const emailHtml = await generateAcceptedQuotationEmail(
+            seller.name,
+            orderId,
+            order.delivery_address // Use the delivery_address from the 'order' object
+        );
+        await sendEmail(seller.email, emailSubject, emailHtml);
+
         sendResponse(res, 200, true, 'Quotation accepted successfully', {
             order_id: orderId,
             accepted_seller_id: quotation.seller_id,
@@ -1651,7 +3058,6 @@ app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize([
         connection.release();
     }
 });
-
 // Order History
 app.get('/api/orders/history', authenticateToken, authorize(['buyer']), async (req, res) => {
     try {
@@ -1797,30 +3203,86 @@ app.post('/api/orders/:orderId/reorder', authenticateToken, authorize(['buyer'])
         await connection.beginTransaction();
 
         const { orderId } = req.params;
+        const { address_id, order_name, notes, delivery_address, delivery_latitude, delivery_longitude } = req.body;
+        const buyer_id = req.user.id;
+
+        // Validate required fields
+        if (!address_id || !order_name || !delivery_address) {
+            await connection.rollback();
+            return sendResponse(res, 400, false, 'Missing required fields: address_id, order_name, delivery_address');
+        }
+
+        // Get buyer email for sending confirmation
+        const [buyerResult] = await connection.execute(
+            'SELECT email, name FROM users WHERE id = ?',
+            [buyer_id]
+        );
+
+        if (buyerResult.length === 0) {
+            await connection.rollback();
+            return sendResponse(res, 400, false, 'Buyer not found');
+        }
+
+        const buyerEmail = buyerResult[0].email;
+        const buyerName = buyerResult[0].name;
 
         // Get original order
         const [orders] = await connection.execute(
             'SELECT * FROM orders WHERE id = ? AND buyer_id = ?',
-            [orderId, req.user.id]
+            [orderId, buyer_id]
         );
 
         if (orders.length === 0) {
+            await connection.rollback();
             return sendResponse(res, 404, false, 'Original order not found');
         }
 
         const originalOrder = orders[0];
 
-        // Create new order - starts fresh without price
+        // Get original order items for email
+        const [orderItems] = await connection.execute(
+            `SELECT 
+                oi.product_id, 
+                oi.quantity_id, 
+                oi.requested_quantity, 
+                oi.notes,
+                p.name as product_name, 
+                p.description as product_description,
+                q.quantity as quantity_value,
+                q.unit_type as quantity_unit
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.id
+             JOIN product_quantities q ON oi.quantity_id = q.id
+             WHERE oi.order_id = ?`,
+            [orderId]
+        );
+
+        if (orderItems.length === 0) {
+            await connection.rollback();
+            return sendResponse(res, 400, false, 'Original order has no items');
+        }
+
+        // Create new order with user-provided data
         const [newOrderResult] = await connection.execute(
-            `INSERT INTO orders (buyer_id, order_name, delivery_address, delivery_latitude, delivery_longitude, notes, status, total_amount) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO orders (
+                buyer_id, 
+                order_name, 
+                delivery_address, 
+                delivery_latitude, 
+                delivery_longitude, 
+                notes, 
+                status, 
+                total_amount,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
             [
-                req.user.id,
-                `Reorder: ${originalOrder.order_name}`,
-                originalOrder.delivery_address,
-                originalOrder.delivery_latitude,
-                originalOrder.delivery_longitude,
-                originalOrder.notes,
+                buyer_id,
+                order_name,
+                delivery_address,
+                delivery_latitude || originalOrder.delivery_latitude,
+                delivery_longitude || originalOrder.delivery_longitude,
+                notes || null,
                 'pending',
                 0 // Start with 0 amount, will be set when quotation is accepted
             ]
@@ -1830,22 +3292,53 @@ app.post('/api/orders/:orderId/reorder', authenticateToken, authorize(['buyer'])
 
         // Copy order items
         await connection.execute(
-            `INSERT INTO order_items (order_id, product_id, quantity_id, requested_quantity, notes)
-             SELECT ?, product_id, quantity_id, requested_quantity, notes
+            `INSERT INTO order_items (order_id, product_id, quantity_id, requested_quantity, notes, created_at)
+             SELECT ?, product_id, quantity_id, requested_quantity, notes, CURRENT_TIMESTAMP
              FROM order_items WHERE order_id = ?`,
             [newOrderId, orderId]
         );
 
         await connection.commit();
+
+        // Prepare order data for email
+        const orderData = {
+            order_id: newOrderId,
+            order_name: order_name,
+            buyer_name: buyerName,
+            delivery_address: delivery_address,
+            total_amount: '0.00',
+            status: 'pending',
+            notes: notes
+        };
+
+        // Send confirmation email to buyer
+        const emailSubject = `Reorder Confirmation - ${order_name} (#${newOrderId})`;
+        const emailHtml = generateOrderConfirmationEmail(orderData, orderItems);
+
+        // Send email (don't block the response if email fails)
+        sendEmail(buyerEmail, emailSubject, emailHtml).then(emailSent => {
+            if (emailSent) {
+                console.log(`Reorder confirmation email sent to ${buyerEmail} for order #${newOrderId}`);
+            } else {
+                console.error(`Failed to send reorder confirmation email to ${buyerEmail} for order #${newOrderId}`);
+            }
+        });
+
+        // Send successful response
         sendResponse(res, 201, true, 'Reorder created successfully', {
             orderId: newOrderId,
+            order_name: order_name,
+            total_amount: 0,
+            status: 'pending',
+            delivery_address: delivery_address,
+            email_sent: true,
             message: 'New order created from previous order. Sellers can now submit quotations.'
         });
 
     } catch (error) {
         await connection.rollback();
         console.error('Reorder error:', error);
-        sendResponse(res, 500, false, 'Failed to create reorder');
+        sendResponse(res, 500, false, 'Failed to create reorder', null, error.message);
     } finally {
         connection.release();
     }
@@ -2099,6 +3592,20 @@ app.post('/api/buyer/orders/create-from-cart', authenticateToken, authorize(['bu
 
         const buyer_id = req.user.id;
 
+        // Get buyer email for sending confirmation
+        const [buyerResult] = await connection.execute(
+            'SELECT email, name FROM users WHERE id = ?',
+            [buyer_id]
+        );
+
+        if (buyerResult.length === 0) {
+            await connection.rollback();
+            return sendResponse(res, 400, false, 'Buyer not found');
+        }
+
+        const buyerEmail = buyerResult[0].email;
+        const buyerName = buyerResult[0].name;
+
         // Get cart items without price calculations (sellers will quote prices)
         const [cartItems] = await connection.execute(
             `SELECT 
@@ -2219,12 +3726,39 @@ app.post('/api/buyer/orders/create-from-cart', authenticateToken, authorize(['bu
         );
 
         await connection.commit();
+
+        // Prepare order data for email
+        const orderData = {
+            order_id: order_id,
+            order_name: order_name,
+            buyer_name: buyerName,
+            delivery_address: delivery_address,
+            total_amount: '0.00', // Will be updated when quotation is accepted
+            status: 'pending',
+            notes: finalGeneralNotes
+        };
+
+        // Send confirmation email to buyer
+        const emailSubject = `Order Confirmation - ${order_name} (#${order_id})`;
+        const emailHtml = generateOrderConfirmationEmail(orderData, cartItems);
+
+        // Send email (don't block the response if email fails)
+        sendEmail(buyerEmail, emailSubject, emailHtml).then(emailSent => {
+            if (emailSent) {
+                console.log(`Order confirmation email sent to ${buyerEmail} for order #${order_id}`);
+            } else {
+                console.error(`Failed to send order confirmation email to ${buyerEmail} for order #${order_id}`);
+            }
+        });
+
+        // Send successful response
         sendResponse(res, 201, true, 'Order created successfully', {
             order_id: order_id,
             order_name: order_name,
             total_amount: 0, // Will be updated when quotation is accepted
             status: 'pending',
-            delivery_address: delivery_address
+            delivery_address: delivery_address,
+            email_sent: true // Indicates email was attempted
         });
 
     } catch (error) {
@@ -2819,6 +4353,97 @@ app.post('/api/orders/:orderId/accept-quotation', authenticateToken, authorize([
     }
 });
 
+// GET /api/orders/:orderId/accepted-quotation
+// GET /api/orders/:orderId/accepted-quotation
+// GET /api/orders/:orderId/accepted-quotation
+app.get('/api/orders/:orderId/accepted-quotation', authenticateToken, authorize(['buyer']), async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        const { orderId } = req.params;
+
+        // Verify order ownership
+        const [orders] = await connection.execute(
+            'SELECT * FROM orders WHERE id = ? AND buyer_id = ?',
+            [orderId, req.user.id]
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found');
+        }
+
+        const order = orders[0];
+
+        // Check if order has an accepted quotation
+        if (!order.accepted_seller_id) {
+            return sendResponse(res, 404, false, 'No accepted quotation found for this order');
+        }
+
+        // Get accepted quotation with seller details
+        const [quotations] = await connection.execute(`
+            SELECT 
+                q.*,
+                u.name as seller_name,
+                u.phone as seller_phone,
+                u.email as seller_email,
+                u.address as seller_address,
+                u.latitude as seller_latitude,
+                u.longitude as seller_longitude,
+                COALESCE(
+                    6371 * acos(
+                        cos(radians(?)) * cos(radians(u.latitude)) *
+                        cos(radians(u.longitude) - radians(?)) +
+                        sin(radians(?)) * sin(radians(u.latitude))
+                    ), 0
+                ) as distance_km
+            FROM quotations q
+            JOIN users u ON q.seller_id = u.id
+            WHERE q.order_id = ? AND q.seller_id = ? AND q.status = 'accepted'
+        `, [
+            order.delivery_latitude || 0,
+            order.delivery_longitude || 0,
+            order.delivery_latitude || 0,
+            orderId,
+            order.accepted_seller_id
+        ]);
+
+        if (quotations.length === 0) {
+            return sendResponse(res, 404, false, 'Accepted quotation not found');
+        }
+
+        const quotation = quotations[0];
+
+        // Get quotation items details - FIXED: Using correct column names and joins
+        const [items] = await connection.execute(`
+            SELECT 
+                qi.*,
+                oi.requested_quantity,
+                oi.notes as item_notes,
+                p.name as product_name,
+                p.description as product_description,
+                c.name as category_name,
+                pq.quantity as quantity_size,
+                pq.unit_type
+            FROM quotation_items qi
+            JOIN order_items oi ON qi.order_item_id = oi.id
+            JOIN product_quantities pq ON oi.quantity_id = pq.id
+            JOIN products p ON oi.product_id = p.id
+            JOIN categories c ON p.category_id = c.id
+            WHERE qi.quotation_id = ?
+            ORDER BY p.name, pq.quantity
+        `, [quotation.id]);
+
+        sendResponse(res, 200, true, 'Accepted quotation retrieved successfully', {
+            ...quotation,
+            items: items
+        });
+
+    } catch (error) {
+        console.error('Get accepted quotation error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve accepted quotation');
+    } finally {
+        connection.release();
+    }
+});
 // Order History
 app.get('/api/orders/history', authenticateToken, authorize(['buyer']), async (req, res) => {
     try {
@@ -2958,114 +4583,67 @@ app.get('/api/orders/:orderId/details', authenticateToken, authorize(['buyer']),
 });
 
 // Reorder functionality - Creates new order from existing one
-app.post('/api/orders/:orderId/reorder', authenticateToken, authorize(['buyer']), async (req, res) => {
-    const connection = await dbPool.getConnection();
-    try {
-        await connection.beginTransaction();
 
-        const { orderId } = req.params;
-
-        // Get original order
-        const [orders] = await connection.execute(
-            'SELECT * FROM orders WHERE id = ? AND buyer_id = ?',
-            [orderId, req.user.id]
-        );
-
-        if (orders.length === 0) {
-            return sendResponse(res, 404, false, 'Original order not found');
-        }
-
-        const originalOrder = orders[0];
-
-        // Create new order - starts fresh without price
-        const [newOrderResult] = await connection.execute(
-            `INSERT INTO orders (buyer_id, order_name, delivery_address, delivery_latitude, delivery_longitude, notes, status, total_amount) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                req.user.id,
-                `Reorder: ${originalOrder.order_name}`,
-                originalOrder.delivery_address,
-                originalOrder.delivery_latitude,
-                originalOrder.delivery_longitude,
-                originalOrder.notes,
-                'pending',
-                0 // Start with 0 amount, will be set when quotation is accepted
-            ]
-        );
-
-        const newOrderId = newOrderResult.insertId;
-
-        // Copy order items
-        await connection.execute(
-            `INSERT INTO order_items (order_id, product_id, quantity_id, requested_quantity, notes)
-             SELECT ?, product_id, quantity_id, requested_quantity, notes
-             FROM order_items WHERE order_id = ?`,
-            [newOrderId, orderId]
-        );
-
-        await connection.commit();
-        sendResponse(res, 201, true, 'Reorder created successfully', {
-            orderId: newOrderId,
-            message: 'New order created from previous order. Sellers can now submit quotations.'
-        });
-
-    } catch (error) {
-        await connection.rollback();
-        console.error('Reorder error:', error);
-        sendResponse(res, 500, false, 'Failed to create reorder');
-    } finally {
-        connection.release();
-    }
-});
 // Analytics Routes
 // SELLER APIs - Complete and Fixed
 
 // Get available orders for sellers to quote on
 app.get('/api/seller/orders/available', authenticateToken, authorize(['seller']), async (req, res) => {
     try {
-        const { max_distance = 50 } = req.query;
+        const { page = 1, limit = 10 } = req.query;
+        const parsedPage = parseInt(page);
+        const parsedLimit = parseInt(limit);
+        const offset = (parsedPage - 1) * parsedLimit;
 
-        // Hardcoded pagination
-        const page = 1;
-        const limit = 10;
-        const offset = (page - 1) * limit;
+        const sellerLat = parseFloat(req.user.latitude);
+        const sellerLon = parseFloat(req.user.longitude);
+        const sellerId = parseInt(req.user.id);
 
-        const sellerLat = req.user.latitude;
-        const sellerLon = req.user.longitude;
-
-        let query = `
-            SELECT o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
-                   o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
-                   o.notes, o.created_at, o.updated_at,
-                   u.name as buyer_name,
-                   COUNT(q.id) as quotation_count,
-                   (6371 * acos(cos(radians(?)) * cos(radians(o.delivery_latitude)) * 
-                    cos(radians(o.delivery_longitude) - radians(?)) + 
-                    sin(radians(?)) * sin(radians(o.delivery_latitude)))) AS distance
-            FROM orders o 
-            JOIN users u ON o.buyer_id = u.id 
-            LEFT JOIN quotations q ON o.id = q.order_id
-            WHERE o.status IN ('pending', 'in_progress')
-            AND o.id NOT IN (SELECT order_id FROM quotations WHERE seller_id = ?)
-            GROUP BY o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
-                     o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
-                     o.notes, o.created_at, o.updated_at, u.name
-        `;
-
-        const params = [sellerLat, sellerLon, sellerLat, req.user.id];
-
-        const distanceFloat = parseFloat(max_distance);
-        if (!isNaN(distanceFloat)) {
-            query += ` HAVING distance <= ?`;
-            params.push(distanceFloat);
+        if (isNaN(sellerLat) || isNaN(sellerLon) || isNaN(sellerId)) {
+            return sendResponse(res, 400, false, 'Seller coordinates or ID are invalid.', null, 'Invalid user location or ID');
         }
 
-        // Hardcoded limit and offset
-        query += ` ORDER BY o.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+        const queryTemplate = `
+            SELECT o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude,
+                   o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount,
+                   o.notes, o.created_at, o.updated_at,
+                   u.name as buyer_name,
+                   COUNT(CASE WHEN q.seller_id = CAST(? AS UNSIGNED) THEN q.id ELSE NULL END) as quotation_count,
+                   (6371 * ACOS(GREATEST(-1, LEAST(1,
+                       (COS(RADIANS(CAST(? AS DOUBLE))) * COS(RADIANS(o.delivery_latitude)) * COS(RADIANS(o.delivery_longitude) - RADIANS(CAST(? AS DOUBLE))) +
+                        SIN(RADIANS(CAST(? AS DOUBLE))) * SIN(RADIANS(o.delivery_latitude))))
+                   ))) AS distance
+            FROM orders o
+            JOIN users u ON o.buyer_id = u.id
+            LEFT JOIN quotations q ON o.id = q.order_id
+            WHERE o.status IN ('pending', 'in_progress')
+            GROUP BY o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude,
+                     o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount,
+                     o.notes, o.created_at, o.updated_at, u.name
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
 
-        const [orders] = await dbPool.execute(query, params);
+        const finalParams = [sellerId, sellerLat, sellerLon, sellerLat, parsedLimit, offset];
+        const query = dbPool.format(queryTemplate, finalParams);
+        const [orders] = await dbPool.execute(query);
 
-        sendResponse(res, 200, true, 'Available orders retrieved successfully', orders);
+        const countQuery = `
+            SELECT COUNT(DISTINCT o.id) as total_items
+            FROM orders o
+            JOIN users u ON o.buyer_id = u.id
+            WHERE o.status IN ('pending', 'in_progress')
+        `;
+        const [totalItemsResult] = await dbPool.execute(countQuery);
+        const totalItems = totalItemsResult[0].total_items;
+        const totalPages = Math.ceil(totalItems / parsedLimit);
+
+        sendResponse(res, 200, true, 'Available orders retrieved successfully', orders, {
+            page: parsedPage,
+            limit: parsedLimit,
+            total_items: totalItems,
+            total_pages: totalPages
+        });
     } catch (error) {
         console.error('Get available orders error:', error);
         sendResponse(res, 500, false, 'Failed to retrieve available orders', null, error.message);
@@ -3073,64 +4651,106 @@ app.get('/api/seller/orders/available', authenticateToken, authorize(['seller'])
 });
 app.get('/api/seller/orders/filter', authenticateToken, authorize(['seller']), async (req, res) => {
     try {
-        const { max_distance = 50, min_date, max_date, buyer_name } = req.query;
+        const parsedPage = parseInt(req.query.page) || 1;
+        const parsedLimit = parseInt(req.query.limit) || 10;
 
-        // Hardcoded pagination
-        const page = 1;
-        const limit = 10;
-        const offset = (page - 1) * limit;
+        const min_date = req.query.min_date;
+        const max_date = req.query.max_date;
+        const buyer_name = req.query.buyer_name;
+        const sort_by = req.query.sort_by;
+        const sort_order = req.query.sort_order;
 
-        const sellerLat = req.user.latitude;
-        const sellerLon = req.user.longitude;
+        const offset = (parsedPage - 1) * parsedLimit;
+
+        const sellerLat = parseFloat(req.user.latitude);
+        const sellerLon = parseFloat(req.user.longitude);
+        const sellerId = req.user.id;
+
+        if (isNaN(sellerLat) || isNaN(sellerLon) || sellerId == null) {
+            return sendResponse(res, 400, false, 'Seller location or ID not found or invalid. Cannot filter orders.');
+        }
 
         let query = `
-            SELECT o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
-                   o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
-                   o.notes, o.created_at, o.updated_at,
+            SELECT o.id, o.buyer_id, o.order_name, o.delivery_address, 
+                   o.delivery_latitude, o.delivery_longitude, o.status, 
+                   o.accepted_seller_id, o.total_amount, o.notes, o.created_at, o.updated_at,
                    u.name as buyer_name,
                    COUNT(q.id) as quotation_count,
-                   (6371 * acos(cos(radians(?)) * cos(radians(o.delivery_latitude)) * 
-                    cos(radians(o.delivery_longitude) - radians(?)) + 
-                    sin(radians(?)) * sin(radians(o.delivery_latitude)))) AS distance
+                   (6371 * acos(cos(radians(?)) * cos(radians(o.delivery_latitude)) * cos(radians(o.delivery_longitude) - radians(?)) + sin(radians(?)) * sin(radians(o.delivery_latitude)))) AS distance
             FROM orders o 
             JOIN users u ON o.buyer_id = u.id 
-            LEFT JOIN quotations q ON o.id = q.order_id
+            LEFT JOIN quotations q ON o.id = q.order_id 
             WHERE o.status IN ('pending', 'in_progress')
             AND o.id NOT IN (SELECT order_id FROM quotations WHERE seller_id = ?)
         `;
 
-        const params = [sellerLat, sellerLon, sellerLat, req.user.id];
+        const params = [sellerLat, sellerLon, sellerLat, sellerId];
 
         if (min_date) {
             query += ` AND DATE(o.created_at) >= ?`;
             params.push(min_date);
         }
-
         if (max_date) {
             query += ` AND DATE(o.created_at) <= ?`;
             params.push(max_date);
         }
-
         if (buyer_name) {
             query += ` AND u.name LIKE ?`;
-            params.push(`%${buyer_name}%`);
+            params.push(`%${buyer_name}%`); // ✅ FIXED
         }
 
-        query += ` GROUP BY o.id, o.buyer_id, o.order_name, o.delivery_address, o.delivery_latitude, 
-                          o.delivery_longitude, o.status, o.accepted_seller_id, o.total_amount, 
-                          o.notes, o.created_at, o.updated_at, u.name`;
+        query += ` GROUP BY o.id, o.buyer_id, o.order_name, o.delivery_address, 
+                            o.delivery_latitude, o.delivery_longitude, o.status, 
+                            o.accepted_seller_id, o.total_amount, o.notes, 
+                            o.created_at, o.updated_at, u.name`;
 
-        if (sellerLat && sellerLon) {
-            query += ` HAVING distance <= ?`;
-            params.push(parseFloat(max_distance));
+        query += ` HAVING distance <= 5`;
+
+        const validSortColumns = ['created_at', 'buyer_name', 'status', 'distance'];
+        const finalSortBy = validSortColumns.includes(sort_by) ? sort_by : 'created_at';
+        const finalSortOrder = (sort_order === 'asc' || sort_order === 'desc') ? sort_order.toUpperCase() : 'DESC';
+
+        query += ` ORDER BY ${finalSortBy} ${finalSortOrder} LIMIT ${parsedLimit} OFFSET ${offset}`;
+
+        const [orders] = await dbPool.query(query, params);
+
+        // Count Query
+        let countQuery = `
+            SELECT COUNT(DISTINCT o.id) as total_items
+            FROM orders o 
+            JOIN users u ON o.buyer_id = u.id 
+            LEFT JOIN quotations q ON o.id = q.order_id 
+            WHERE o.status IN ('pending', 'in_progress')
+            AND o.id NOT IN (SELECT order_id FROM quotations WHERE seller_id = ?)
+            AND (6371 * acos(cos(radians(?)) * cos(radians(o.delivery_latitude)) 
+            * cos(radians(o.delivery_longitude) - radians(?)) + sin(radians(?)) * sin(radians(o.delivery_latitude)))) <= 5
+        `;
+
+        const countParams = [sellerId, sellerLat, sellerLon, sellerLat];
+
+        if (min_date) {
+            countQuery += ` AND DATE(o.created_at) >= ?`;
+            countParams.push(min_date);
+        }
+        if (max_date) {
+            countQuery += ` AND DATE(o.created_at) <= ?`;
+            countParams.push(max_date);
+        }
+        if (buyer_name) {
+            countQuery += ` AND u.name LIKE ?`;
+            countParams.push(`%${buyer_name}%`); // ✅ FIXED
         }
 
-        // Hardcoded limit and offset
-        query += ` ORDER BY distance ASC, o.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+        const [countResult] = await dbPool.query(countQuery, countParams);
+        const totalItems = countResult[0].total_items;
+        const totalPages = Math.ceil(totalItems / parsedLimit);
 
-        const [orders] = await dbPool.execute(query, params);
-
-        sendResponse(res, 200, true, 'Filtered orders retrieved successfully', orders);
+        sendResponse(res, 200, true, 'Filtered orders retrieved successfully', orders, {
+            page: parsedPage,
+            limit: parsedLimit,
+            total_items: totalItems,
+            total_pages: totalPages,
+        });
     } catch (error) {
         console.error('Filter orders error:', error);
         sendResponse(res, 500, false, 'Failed to filter orders');
@@ -3180,6 +4800,9 @@ app.get('/api/seller/orders/:orderId/details', authenticateToken, authorize(['se
 });
 
 // Create quotation - This is where sellers set their prices
+// Updated quotation creation endpoint with email functionality
+
+// Updated quotation creation endpoint with email notification
 app.post('/api/seller/quotations/create', authenticateToken, authorize(['seller']), [
     body('order_id').isInt().withMessage('Valid order ID required'),
     body('items').isArray({ min: 1 }).withMessage('At least one item required'),
@@ -3272,6 +4895,14 @@ app.post('/api/seller/quotations/create', authenticateToken, authorize(['seller'
         );
 
         await connection.commit();
+
+        // Send email notification to buyer (async, don't wait for it)
+        sendQuotationNotificationEmail(order_id, quotationId, req.user.id)
+            .catch(error => {
+                console.error('Email notification failed:', error);
+                // Don't fail the request if email fails
+            });
+
         sendResponse(res, 201, true, 'Quotation created successfully', {
             quotationId,
             totalAmount,
@@ -3285,7 +4916,7 @@ app.post('/api/seller/quotations/create', authenticateToken, authorize(['seller'
     } finally {
         connection.release();
     }
-});
+})
 
 // Get seller's quotations
 app.get('/api/seller/quotations/my-quotations', authenticateToken, authorize(['seller']), async (req, res) => {
@@ -3572,7 +5203,339 @@ app.put('/api/seller/orders/:orderId/complete', authenticateToken, authorize(['s
         connection.release();
     }
 });
+app.put('/api/seller/orders/:orderId/request-completion-otp', authenticateToken, authorize(['seller']), async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        const { orderId } = req.params;
 
+        // Check if order exists and belongs to seller
+        const [orders] = await connection.execute(
+            `SELECT o.*, u.email as buyer_email, u.name as buyer_name 
+             FROM orders o 
+             JOIN users u ON o.buyer_id = u.id 
+             WHERE o.id = ? AND o.accepted_seller_id = ? AND o.status = ?`,
+            [orderId, req.user.id, 'accepted']
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found or cannot be completed');
+        }
+
+        const order = orders[0];
+        const otp = generateOTP();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        // Store OTP in database
+        await connection.execute(
+            `INSERT INTO otp_verifications (email, otp, type, expires_at, is_used, created_at) 
+             VALUES (?, ?, 'order_completion', ?, 0, CURRENT_TIMESTAMP)`,
+            [order.buyer_email, otp, expiresAt]
+        );
+
+        // Send OTP email to buyer
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #333; text-align: center;">Order Completion Verification</h2>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                    <p>Dear ${order.buyer_name},</p>
+                    <p>Your seller has marked Order #${orderId} as completed. To confirm receipt and complete the order, please share the following OTP with your seller:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <div style="display: inline-block; background-color: #4CAF50; color: white; padding: 15px 30px; font-size: 24px; font-weight: bold; border-radius: 8px; letter-spacing: 3px;">
+                            ${otp}
+                        </div>
+                    </div>
+                    
+                    <p><strong>Important:</strong></p>
+                    <ul>
+                        <li>This OTP is valid for 10 minutes only</li>
+                        <li>Do not share this OTP unless you have received your order</li>
+                        <li>Only share this OTP with your seller to confirm order completion</li>
+                    </ul>
+                    
+                    <p>If you have not received your order or have any concerns, please contact customer support immediately.</p>
+                    
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                    <p style="color: #666; font-size: 12px; text-align: center;">
+                        This is an automated email. Please do not reply to this email.
+                    </p>
+                </div>
+            </div>
+        `;
+
+        const emailSent = await sendEmail(
+            order.buyer_email,
+            `Order Completion OTP - Order #${orderId}`,
+            emailHtml
+        );
+
+        if (!emailSent) {
+            return sendResponse(res, 500, false, 'Failed to send OTP email');
+        }
+
+        sendResponse(res, 200, true, 'OTP sent to buyer successfully', {
+            message: 'An OTP has been sent to the buyer\'s email for order completion verification'
+        });
+
+    } catch (error) {
+        console.error('Request completion OTP error:', error);
+        sendResponse(res, 500, false, 'Failed to send completion OTP');
+    } finally {
+        connection.release();
+    }
+});
+
+// 2. Verify OTP and complete order
+app.put('/api/seller/orders/:orderId/verify-completion', authenticateToken, authorize(['seller']), async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { orderId } = req.params;
+        const { otp } = req.body;
+
+        if (!otp) {
+            return sendResponse(res, 400, false, 'OTP is required');
+        }
+
+        // Check if order exists and belongs to seller with buyer and seller details
+        const [orders] = await connection.execute(
+            `SELECT o.*, 
+                    buyer.name as buyer_name, buyer.email as buyer_email,
+                    seller.name as seller_name, seller.email as seller_email
+             FROM orders o  
+             JOIN users buyer ON o.buyer_id = buyer.id
+             JOIN users seller ON o.accepted_seller_id = seller.id  
+             WHERE o.id = ? AND o.accepted_seller_id = ? AND o.status = ?`,
+            [orderId, req.user.id, 'accepted']
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found or cannot be completed');
+        }
+
+        const order = orders[0];
+
+        // Verify OTP
+        const [otpRecords] = await connection.execute(
+            `SELECT * FROM otp_verifications  
+             WHERE email = ? AND otp = ? AND type = 'order_completion'  
+             AND is_used = 0 AND expires_at > CURRENT_TIMESTAMP  
+             ORDER BY created_at DESC LIMIT 1`,
+            [order.buyer_email, otp]
+        );
+
+        if (otpRecords.length === 0) {
+            return sendResponse(res, 400, false, 'Invalid or expired OTP');
+        }
+
+        // Get quotation details with items (only quotation items, no order items needed)
+        const [quotations] = await connection.execute(
+            `SELECT q.id as quotation_id, q.total_amount as quotation_total, q.discount, q.notes as quotation_notes,
+                    qi.*, p.name as product_name, p.description as product_description, 
+                    pq.quantity, pq.unit_type
+             FROM quotations q
+             JOIN quotation_items qi ON q.id = qi.quotation_id
+             JOIN order_items oi ON qi.order_item_id = oi.id
+             JOIN product_quantities pq ON oi.quantity_id = pq.id
+             JOIN products p ON pq.product_id = p.id
+             WHERE q.order_id = ? AND q.status = 'accepted'
+             ORDER BY qi.id`,
+            [orderId]
+        );
+
+        // Group quotation items by product
+        const quotationItemsMap = {};
+        let quotationInfo = null;
+
+        quotations.forEach(item => {
+            // Store quotation info (same for all items)
+            if (!quotationInfo) {
+                quotationInfo = {
+                    quotation_id: item.quotation_id,
+                    quotation_total: item.quotation_total,
+                    discount: item.discount,
+                    quotation_notes: item.quotation_notes
+                };
+            }
+
+            const key = `${item.product_id}_${item.quantity_id}`;
+            if (!quotationItemsMap[key]) {
+                quotationItemsMap[key] = {
+                    product_name: item.product_name,
+                    product_description: item.product_description,
+                    quantities: []
+                };
+            }
+            quotationItemsMap[key].quantities.push({
+                quantity: item.quantity,
+                unit_type: item.unit_type,
+                available_quantity: item.available_quantity,
+                price_per_unit: item.price_per_unit,
+                total_price: item.total_price,
+                is_available: item.is_available
+            });
+        });
+
+        const quotationItems = Object.values(quotationItemsMap);
+
+        // Mark OTP as used
+        await connection.execute(
+            'UPDATE otp_verifications SET is_used = 1 WHERE id = ?',
+            [otpRecords[0].id]
+        );
+
+        // Update order status to completed
+        await connection.execute(
+            'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['completed', orderId]
+        );
+
+        // Close chat when order is completed
+        await connection.execute(
+            `UPDATE order_chat_participants  
+             SET chat_status = 'closed', closed_at = CURRENT_TIMESTAMP 
+             WHERE order_id = ? AND chat_status = 'active'`,
+            [orderId]
+        );
+
+        await connection.commit();
+
+        // Prepare order details for email
+        const orderDetails = {
+            order_name: order.order_name,
+            order_id: order.id,
+            delivery_address: order.delivery_address,
+            total_amount: order.total_amount,
+            quotationItems: quotationItems,
+            quotationInfo: quotationInfo, // Add quotation details
+            buyer_name: order.buyer_name,
+            seller_name: order.seller_name,
+            buyer_email: order.buyer_email,
+            seller_email: order.seller_email
+        };
+
+        // Send email to buyer (with order name)
+        const buyerEmailHtml = generateOrderCompletionEmail(orderDetails, 'buyer');
+        const buyerEmailSent = await sendEmail(
+            order.buyer_email,
+            `✅ Order Delivered Successfully - ${order.order_name}`,
+            buyerEmailHtml
+        );
+
+        // Send email to seller (with order ID)
+        const sellerEmailHtml = generateOrderCompletionEmail(orderDetails, 'seller');
+        const sellerEmailSent = await sendEmail(
+            order.seller_email,
+            `✅ Order Completed Successfully - Order #${order.id}`,
+            sellerEmailHtml
+        );
+
+        console.log(`Order completion emails sent - Buyer: ${buyerEmailSent}, Seller: ${sellerEmailSent}`);
+
+        sendResponse(res, 200, true, 'Order completed successfully', {
+            orderId: orderId,
+            status: 'completed',
+            emailsSent: {
+                buyer: buyerEmailSent,
+                seller: sellerEmailSent
+            }
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Verify completion OTP error:', error);
+        sendResponse(res, 500, false, 'Failed to verify OTP and complete order');
+    } finally {
+        connection.release();
+    }
+});
+// 3. Resend completion OTP
+app.put('/api/seller/orders/:orderId/resend-completion-otp', authenticateToken, authorize(['seller']), async (req, res) => {
+    const connection = await dbPool.getConnection();
+    try {
+        const { orderId } = req.params;
+
+        // Check if order exists and belongs to seller
+        const [orders] = await connection.execute(
+            `SELECT o.*, u.email as buyer_email, u.name as buyer_name 
+             FROM orders o 
+             JOIN users u ON o.buyer_id = u.id 
+             WHERE o.id = ? AND o.accepted_seller_id = ? AND o.status = ?`,
+            [orderId, req.user.id, 'accepted']
+        );
+
+        if (orders.length === 0) {
+            return sendResponse(res, 404, false, 'Order not found');
+        }
+
+        const order = orders[0];
+
+        // Check if there was a recent OTP request (prevent spam)
+        const [recentOtp] = await connection.execute(
+            `SELECT * FROM otp_verifications 
+             WHERE email = ? AND type = 'order_completion' 
+             AND created_at > DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 MINUTE)`,
+            [order.buyer_email]
+        );
+
+        if (recentOtp.length > 0) {
+            return sendResponse(res, 429, false, 'Please wait at least 1 minute before requesting a new OTP');
+        }
+
+        const otp = generateOTP();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        // Store new OTP in database
+        await connection.execute(
+            `INSERT INTO otp_verifications (email, otp, type, expires_at, is_used, created_at) 
+             VALUES (?, ?, 'order_completion', ?, 0, CURRENT_TIMESTAMP)`,
+            [order.buyer_email, otp, expiresAt]
+        );
+
+        // Send OTP email to buyer
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #333; text-align: center;">Order Completion Verification (Resent)</h2>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                    <p>Dear ${order.buyer_name},</p>
+                    <p>You requested a new OTP for Order #${orderId} completion verification. Here is your new OTP:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <div style="display: inline-block; background-color: #4CAF50; color: white; padding: 15px 30px; font-size: 24px; font-weight: bold; border-radius: 8px; letter-spacing: 3px;">
+                            ${otp}
+                        </div>
+                    </div>
+                    
+                    <p><strong>Important:</strong></p>
+                    <ul>
+                        <li>This OTP is valid for 10 minutes only</li>
+                        <li>Do not share this OTP unless you have received your order</li>
+                        <li>Only share this OTP with your seller to confirm order completion</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        const emailSent = await sendEmail(
+            order.buyer_email,
+            `Order Completion OTP (Resent) - Order #${orderId}`,
+            emailHtml
+        );
+
+        if (!emailSent) {
+            return sendResponse(res, 500, false, 'Failed to send OTP email');
+        }
+
+        sendResponse(res, 200, true, 'OTP resent successfully');
+
+    } catch (error) {
+        console.error('Resend completion OTP error:', error);
+        sendResponse(res, 500, false, 'Failed to resend completion OTP');
+    } finally {
+        connection.release();
+    }
+});
 // Get seller's order history
 app.get('/api/seller/orders/history', authenticateToken, authorize(['seller']), async (req, res) => {
     try {
@@ -4431,7 +6394,9 @@ app.post('/api/admin/products/add', authenticateToken, authorize(['admin']), [
 });
 
 // PUT /api/admin/products/:productId/edit - Edit product
-app.put('/api/admin/products/:productId/edit',
+// PUT /api/admin/products/:productId/edit - Edit product
+app.put(
+    '/api/admin/products/:productId/edit',
     authenticateToken,
     authorize(['admin']),
     [
@@ -4442,19 +6407,24 @@ app.put('/api/admin/products/:productId/edit',
         body('is_active').optional().isBoolean(),
         body('description').optional().isString(),
 
-        // Update quantity
-        body('update_quantity.id').optional().isInt(),
-        body('update_quantity.quantity').optional().notEmpty(),
-        body('update_quantity.unit_type').optional().isIn(['weight', 'volume', 'piece']),
+        // Update quantities (expects an array)
+        body('update_quantities').optional().isArray(),
+        body('update_quantities.*.id').optional().isInt(),
+        body('update_quantities.*.quantity').optional().notEmpty(),
+        body('update_quantities.*.unit_type')
+            .optional()
+            .isIn(['weight', 'volume', 'piece']),
 
         // Add multiple quantities
         body('add_quantities').optional().isArray(),
         body('add_quantities.*.quantity').optional().notEmpty(),
-        body('add_quantities.*.unit_type').optional().isIn(['weight', 'volume', 'piece']),
+        body('add_quantities.*.unit_type')
+            .optional()
+            .isIn(['weight', 'volume', 'piece']),
 
         // Delete quantities
         body('delete_quantity_ids').optional().isArray(),
-        body('delete_quantity_ids.*').optional().isInt()
+        body('delete_quantity_ids.*').optional().isInt(),
     ],
     handleValidationErrors,
     async (req, res) => {
@@ -4466,22 +6436,22 @@ app.put('/api/admin/products/:productId/edit',
                 category_id,
                 image,
                 is_active = true,
-                update_quantity,
+                update_quantities,
                 add_quantities,
-                delete_quantity_ids
+                delete_quantity_ids,
             } = req.body;
 
             // 1. Update product table
             if (name || description || category_id || image) {
                 const [result] = await dbPool.execute(
-                    `UPDATE products SET 
-                        name = COALESCE(?, name), 
-                        description = COALESCE(?, description), 
-                        category_id = COALESCE(?, category_id), 
-                        image = COALESCE(?, image), 
-                        is_active = ?, 
-                        updated_at = NOW()
-                    WHERE id = ?`,
+                    `UPDATE products SET
+            name = COALESCE(?, name),
+            description = COALESCE(?, description),
+            category_id = COALESCE(?, category_id),
+            image = COALESCE(?, image),
+            is_active = ?,
+            updated_at = NOW()
+          WHERE id = ?`,
                     [name, description, category_id, image, is_active, productId]
                 );
 
@@ -4491,7 +6461,11 @@ app.put('/api/admin/products/:productId/edit',
             }
 
             // 2. Delete specified quantities
-            if (delete_quantity_ids && Array.isArray(delete_quantity_ids) && delete_quantity_ids.length > 0) {
+            if (
+                delete_quantity_ids &&
+                Array.isArray(delete_quantity_ids) &&
+                delete_quantity_ids.length > 0
+            ) {
                 const placeholders = delete_quantity_ids.map(() => '?').join(',');
                 await dbPool.execute(
                     `DELETE FROM product_quantities WHERE id IN (${placeholders}) AND product_id = ?`,
@@ -4499,14 +6473,22 @@ app.put('/api/admin/products/:productId/edit',
                 );
             }
 
-            // 3. Update existing quantity
-            if (update_quantity && update_quantity.id && update_quantity.quantity && update_quantity.unit_type) {
-                const [updateResult] = await dbPool.execute(
-                    `UPDATE product_quantities 
-                     SET quantity = ?, unit_type = ?, updated_at = NOW() 
-                     WHERE id = ? AND product_id = ?`,
-                    [update_quantity.quantity, update_quantity.unit_type, update_quantity.id, productId]
-                );
+            // 3. Update existing quantities
+            if (
+                update_quantities &&
+                Array.isArray(update_quantities) &&
+                update_quantities.length > 0
+            ) {
+                for (const updateQty of update_quantities) {
+                    if (updateQty.id && updateQty.quantity && updateQty.unit_type) {
+                        await dbPool.execute(
+                            `UPDATE product_quantities
+               SET quantity = ?, unit_type = ?
+               WHERE id = ? AND product_id = ?`,
+                            [updateQty.quantity, updateQty.unit_type, updateQty.id, productId]
+                        );
+                    }
+                }
             }
 
             // 4. Add new quantities
@@ -4514,7 +6496,8 @@ app.put('/api/admin/products/:productId/edit',
                 for (const { quantity, unit_type } of add_quantities) {
                     if (quantity && unit_type) {
                         await dbPool.execute(
-                            'INSERT INTO product_quantities (product_id, quantity, unit_type, created_at) VALUES (?, ?, ?, NOW())',
+                            `INSERT INTO product_quantities (product_id, quantity, unit_type, created_at)
+               VALUES (?, ?, ?, NOW())`,
                             [productId, quantity, unit_type]
                         );
                     }
@@ -5919,52 +7902,95 @@ app.get('/api/profile/me', authenticateToken, (req, res) => {
 
 // PUT /api/profile/update - Update profile
 
-app.put('/api/profile/update', authenticateToken, [
-    body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
-    body('phone').optional().isMobilePhone().withMessage('Valid phone number required'),
-    body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Valid gender required'),
-    body('date_of_birth').optional().isDate().withMessage('Valid date required'),
-    body('address').optional().trim().isLength({ min: 1 }).withMessage('Valid address required'),
-    body('latitude').optional().isFloat().withMessage('Valid latitude required'),
-    body('longitude').optional().isFloat().withMessage('Valid longitude required')
-], handleValidationErrors, async (req, res) => {
-    try {
-        const { role, id } = req.user;
+app.put(
+    "/api/profile/update",
+    authenticateToken,
+    [
+        body("name")
+            .optional()
+            .trim()
+            .isLength({ min: 2, max: 100 })
+            .withMessage("Name must be 2-100 characters"),
+        body("phone")
+            .optional()
+            .isMobilePhone()
+            .withMessage("Valid phone number required"),
+        body("gender")
+            .optional()
+            .isIn(["male", "female", "other"])
+            .withMessage("Valid gender required"),
+        body("date_of_birth")
+            .optional()
+            .isDate()
+            .withMessage("Valid date required"),
+        body("address")
+            .optional()
+            .trim()
+            .isLength({ min: 1 })
+            .withMessage("Valid address required"),
+        body("latitude")
+            .optional()
+            .isFloat()
+            .withMessage("Valid latitude required"),
+        body("longitude")
+            .optional()
+            .isFloat()
+            .withMessage("Valid longitude required"),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
+        try {
+            const { role, id } = req.user;
 
-        const allowedFieldsByRole = {
-            buyer: ['name', 'phone', 'gender', 'date_of_birth'],
-            seller: ['name', 'phone', 'gender', 'date_of_birth', 'address', 'latitude', 'longitude'],
-            admin: ['name', 'email', 'phone'],
-        };
+            const allowedFieldsByRole = {
+                buyer: ["name", "phone", "gender", "date_of_birth"],
+                seller: [
+                    "name",
+                    "phone",
+                    "gender",
+                    "date_of_birth",
+                    "address",
+                    "latitude",
+                    "longitude",
+                ],
+                admin: ["name", "email", "phone"],
+            };
 
-        const allowedFields = allowedFieldsByRole[role] || [];
+            const allowedFields = allowedFieldsByRole[role] || [];
 
-        const updates = [];
-        const values = [];
+            const updates = [];
+            const values = [];
 
-        allowedFields.forEach((field) => {
-            if (req.body[field] !== undefined) {
-                updates.push(`${field} = ?`);
-                values.push(req.body[field]);
+            allowedFields.forEach((field) => {
+                if (req.body[field] !== undefined) {
+                    updates.push(`\`${field}\` = ?`);
+                    values.push(req.body[field]);
+                }
+            });
+
+            if (updates.length === 0) {
+                return sendResponse(
+                    res,
+                    400,
+                    false,
+                    "No valid fields to update for this role"
+                );
             }
-        });
 
-        if (updates.length === 0) {
-            return sendResponse(res, 400, false, 'No valid fields to update for this role');
+            updates.push("updated_at = NOW()");
+            values.push(id);
+
+            const query = `UPDATE users SET ${updates.join(", ")} WHERE id = ?`;
+            await dbPool.execute(query, values);
+
+            sendResponse(res, 200, true, "Profile updated successfully");
+        } catch (error) {
+            console.error("Update profile error:", error);
+            sendResponse(res, 500, false, "Failed to update profile");
         }
-
-        updates.push('updated_at = NOW()');
-        values.push(id);
-
-        const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-        await dbPool.execute(query, values);
-
-        sendResponse(res, 200, true, 'Profile updated successfully');
-    } catch (error) {
-        console.error('Update profile error:', error);
-        sendResponse(res, 500, false, 'Failed to update profile');
     }
-});
+);
+
 app.put('/api/prokils/upkates', authenticateToken, [
     body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
     body('phone').optional().isMobilePhone().withMessage('Valid phone number required'),
@@ -6795,11 +8821,63 @@ app.post('/api/orders/:orderId/upload-file', authenticateToken, chatUpload.singl
         sendResponse(res, 500, false, 'File upload failed');
     }
 });
+app.get('/api/landing/stat', async (req, res) => {
+    try {
+        // Get total buyers and sellers
+        const [userStats] = await dbPool.execute(`
+            SELECT 
+                COUNT(CASE WHEN role = 'buyer' THEN 1 END) as total_buyers,
+                COUNT(CASE WHEN role = 'seller' THEN 1 END) as total_sellers
+            FROM users
+        `);
+
+        // Get total products
+        const [productStats] = await dbPool.execute(`
+            SELECT COUNT(id) as total_products FROM products
+        `);
+
+        const result = {
+            totalBuyers: userStats[0].total_buyers,
+            totalSellers: userStats[0].total_sellers,
+            totalProducts: productStats[0].total_products
+        };
+
+        sendResponse(res, 200, true, 'Landing page analytics retrieved successfully', result);
+    } catch (error) {
+        console.error('Get landing page stats error:', error);
+        sendResponse(res, 500, false, 'Failed to retrieve landing page analytics');
+    }
+});
 
 
 // ========================================
 // SECTION 11: ERROR HANDLING & SERVER STARTUP
 // ========================================
+
+// Serve static files from 'dist' folder
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Fallback to index.html for client-side routing, but exclude API and uploads paths
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+        // Pass to next middleware (which will handle 404 JSON response)
+        return next();
+    }
+
+    const ext = path.extname(req.path);
+    if (!ext) {
+        // Serve SPA routes (like /dashboard)
+        return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    }
+
+    // Redirect invalid static file paths to home
+    return res.redirect('/');
+});
+
+// 404 handler for API and other unknown routes
+app.use((req, res) => {
+    sendResponse(res, 404, false, 'Endpoint not found');
+});
 
 // Global error handler
 app.use((error, req, res, next) => {
@@ -6813,11 +8891,6 @@ app.use((error, req, res, next) => {
     }
 
     sendResponse(res, 500, false, 'Internal server error');
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-    sendResponse(res, 404, false, 'Endpoint not found');
 });
 
 // Cleanup expired sessions and OTPs
@@ -6835,7 +8908,7 @@ async function startServer() {
     try {
         await initializeDatabase();
 
-        server.listen(PORT, '0.0.0.0', () => { // ✅ Correct
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 Grocery Delivery Server running on port ${PORT}`);
             console.log(`📱 API Base URL: http://0.0.0.0:${PORT}/api`);
             console.log(`📊 Database: Connected to ${dbConfig.database}`);

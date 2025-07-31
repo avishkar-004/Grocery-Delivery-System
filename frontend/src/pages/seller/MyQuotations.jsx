@@ -64,7 +64,7 @@ const ChatAndDetailsModal = React.memo(({
   const [isDragging, setIsDragging] = useState(false);
 
   const isEditable = useMemo(() => details?.status === 'pending', [details?.status]);
-  const isCancellable = useMemo(() => details?.status === 'pending' || details?.status === 'accepted', [details?.status]);
+  const isCancellable = useMemo(() => details?.status === 'pending', [details?.status]); // Modified: Only pending can be cancelled
 
   // Fetch full quotation details when modal opens
   useEffect(() => {
@@ -722,7 +722,7 @@ const MyQuotations = () => {
             ) : (
                 <div className="space-y-4">
                   {quotations.map((quotation) => {
-                    const isCancellable = quotation.status === 'pending' || quotation.status === 'accepted';
+                    const isCancellable = quotation.status === 'pending'; // Modified: Only pending can be cancelled
                     const canChat = quotation.status === "pending" || quotation.status === "accepted";
 
                     return (

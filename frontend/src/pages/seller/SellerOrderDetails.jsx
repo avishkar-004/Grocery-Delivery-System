@@ -139,6 +139,12 @@ const SellerOrderDetails = () => {
                 </div>
               </div>
             </div>
+            {orderDetails.notes && (
+              <div className="border-t pt-4 mt-4">
+                <p className="text-sm font-medium text-muted-foreground">Order Notes</p>
+                <p className="text-base italic text-gray-700 dark:text-gray-300">{orderDetails.notes}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -200,6 +206,9 @@ const SellerOrderDetails = () => {
                     )}
                     {item.total_price && (
                       <p><span className="font-medium">Item Total:</span> ₹{item.total_price.toFixed(2)}</p>
+                    )}
+                    {item.notes && ( // Display item-specific notes
+                      <p className="md:col-span-2"><span className="font-medium">Item Notes:</span> {item.notes}</p>
                     )}
                   </div>
                 </Card>

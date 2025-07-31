@@ -64,7 +64,7 @@ const SellerLayout = () => {
   const handleLogout = () => {
     localStorage.removeItem('seller_token');
     localStorage.removeItem('user');
-    navigate('/seller/login');
+    navigate('/');
   };
 
   return (
